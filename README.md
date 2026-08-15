@@ -28,7 +28,12 @@ English README: [README.en.md](README.en.md)
 ```text
 请通过 Cowart 仓库自带的 Git marketplace 安装 Cowart Codex 插件。
 先运行 codex plugin marketplace add zhongerxin/Cowart --ref main，
-再运行 codex plugin add cowart@cowart-github，并用 codex plugin list 确认插件已启用。
+再运行 codex plugin add cowart@cowart-github，并用 codex plugin list --json 确认插件已启用和读取已安装版本。
+然后把实际安装目录解析为 ${CODEX_HOME:-$HOME/.codex}/plugins/cache/cowart-github/cowart/<已安装版本>。
+必须确认这个目录同时包含 package.json 和 .codex-marketplace-install.json，
+再运行 npm install --prefix "<实际安装目录>"，并确认 <实际安装目录>/node_modules/tldraw/package.json 存在。
+不要在当前仓库或 codex plugin list --json 返回的 .codex/.tmp/marketplaces/cowart-github 快照目录执行 npm install，
+也不要依赖从插件缓存到其他 node_modules 的软链接。
 不要把仓库 clone 到 personal marketplace。安装完成后请明确提醒我：
 必须完全退出并重新启动一次 Codex，再开始使用 Cowart。
 ```
@@ -45,10 +50,29 @@ codex plugin marketplace add zhongerxin/Cowart --ref main
 
 ```bash
 codex plugin add cowart@cowart-github
-codex plugin list
+codex plugin list --json
 ```
 
-如果 `cowart-github` 已经注册，可以跳过第一条 `marketplace add` 命令。安装后请完全退出并重新启动一次 Codex，让新的 skill 和 MCP 工具完整加载。
+接着从 `codex plugin list --json` 读取实际安装版本，在 Cowart 的**插件运行缓存目录**中安装依赖：
+
+```bash
+cowart_version="$(
+  codex plugin list --json |
+    node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk); process.stdin.on("end", () => { const plugin = JSON.parse(input).installed.find(item => item.pluginId === "cowart@cowart-github"); if (!plugin) { console.error("Cowart is not installed"); process.exit(1); } process.stdout.write(plugin.version); });'
+)"
+cowart_codex_dir="${CODEX_HOME:-$HOME/.codex}"
+cowart_plugin_dir="$cowart_codex_dir/plugins/cache/cowart-github/cowart/$cowart_version"
+
+test -f "$cowart_plugin_dir/package.json"
+test -f "$cowart_plugin_dir/.codex-marketplace-install.json"
+printf '正在安装 Cowart 依赖：%s\n' "$cowart_plugin_dir"
+npm install --prefix "$cowart_plugin_dir"
+test -f "$cowart_plugin_dir/node_modules/tldraw/package.json"
+```
+
+这些检查用于确保 `npm install` 写入类似 `~/.codex/plugins/cache/cowart-github/cowart/0.1.25` 的实际插件缓存，而不是当前仓库或 `.codex/.tmp/marketplaces/cowart-github` marketplace 快照。不要通过软链接复用其他目录的 `node_modules`；每个已安装版本都应在自己的缓存目录中拥有完整依赖。
+
+如果 `cowart-github` 已经注册，可以跳过第一条 `marketplace add` 命令。依赖安装并验证通过后，请完全退出并重新启动一次 Codex，让新的 skill 和 MCP 工具完整加载。
 
 Codex 会在启动插件系统时自动检查这个 Git marketplace，并在远程 `main` 分支发生变化后刷新已安装的 Cowart。需要立即检查更新时，可以手动运行：
 
@@ -56,7 +80,7 @@ Codex 会在启动插件系统时自动检查这个 Git marketplace，并在远�
 codex plugin marketplace upgrade cowart-github
 ```
 
-更新完成后同样建议重新启动 Codex。
+更新可能会替换插件缓存。更新后请重新执行上面的缓存目录定位、`npm install --prefix "$cowart_plugin_dir"` 和 `tldraw` 文件检查，再完全退出并重新启动 Codex。
 
 ## 使用
 
