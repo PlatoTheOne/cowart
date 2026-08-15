@@ -18,6 +18,9 @@ The repository also conforms to [Agent Plugins v1.0.0](https://agent-plugins.org
 
 ## Installation
 
+> [!IMPORTANT]
+> After installation, completely quit and restart Codex once before using Cowart. Restarting ensures that Cowart's new skills and MCP tools are fully loaded.
+
 ### Ask Codex To Install It
 
 Send the following message to Codex:
@@ -26,8 +29,8 @@ Send the following message to Codex:
 Please install the Cowart Codex plugin through the Git marketplace bundled with its repository.
 First run codex plugin marketplace add zhongerxin/Cowart --ref main,
 then run codex plugin add cowart@cowart-github and use codex plugin list to confirm it is enabled.
-Do not clone the repository into the personal marketplace. When installation finishes, tell me to
-start a new task so Codex loads Cowart's new skills and MCP tools.
+Do not clone the repository into the personal marketplace. When installation finishes, clearly remind me
+to completely quit and restart Codex once before using Cowart.
 ```
 
 ### Manual Install
@@ -45,7 +48,7 @@ codex plugin add cowart@cowart-github
 codex plugin list
 ```
 
-If `cowart-github` is already registered, skip the first `marketplace add` command. After installing, start a new Codex task so the new skills and MCP tools are loaded cleanly.
+If `cowart-github` is already registered, skip the first `marketplace add` command. After installing, completely quit and restart Codex once so the new skills and MCP tools are fully loaded.
 
 Codex automatically checks this Git marketplace when its plugin system starts and refreshes the installed Cowart plugin when the remote `main` branch changes. To check for an update immediately, run:
 
@@ -53,7 +56,7 @@ Codex automatically checks this Git marketplace when its plugin system starts an
 codex plugin marketplace upgrade cowart-github
 ```
 
-Start a new task after the update as well.
+Restart Codex after the update as well.
 
 ## Usage
 
