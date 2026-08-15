@@ -28,12 +28,9 @@ Send the following message to Codex:
 ```text
 Please install the Cowart Codex plugin through the Git marketplace bundled with its repository.
 First run codex plugin marketplace add zhongerxin/Cowart --ref main,
-then run codex plugin add cowart@cowart-github and use codex plugin list --json to confirm it is enabled and read the installed version.
-Resolve the actual install directory as ${CODEX_HOME:-$HOME/.codex}/plugins/cache/cowart-github/cowart/<installed-version>.
-Confirm that this directory contains both package.json and .codex-marketplace-install.json,
-then run npm install --prefix "<actual-install-directory>" and verify that <actual-install-directory>/node_modules/tldraw/package.json exists.
-Do not run npm install in the current repository or in the .codex/.tmp/marketplaces/cowart-github snapshot path returned by codex plugin list --json,
-and do not rely on a symlink from the plugin cache to another node_modules directory.
+then run codex plugin add cowart@cowart-github and use codex plugin list to confirm it is enabled.
+When Cowart starts its MCP server for the first time, it automatically runs npm install in its own plugin directory;
+do not install dependencies manually in the current repository or a marketplace snapshot.
 Do not clone the repository into the personal marketplace. When installation finishes, clearly remind me
 to completely quit and restart Codex once before using Cowart.
 ```
@@ -50,29 +47,12 @@ Then install Cowart from that marketplace and verify it:
 
 ```bash
 codex plugin add cowart@cowart-github
-codex plugin list --json
+codex plugin list
 ```
 
-Next, read the installed version from `codex plugin list --json` and install dependencies in Cowart's **runtime plugin cache directory**:
+You do not need to locate the plugin cache manually. When Cowart starts its MCP server for the first time, it checks its dependencies. If packages such as `tldraw` are missing, the startup script resolves the real plugin directory from its own location and automatically runs `npm install` there. The first startup requires working Node.js, npm, and network access, so it may take a few extra seconds.
 
-```bash
-cowart_version="$(
-  codex plugin list --json |
-    node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk); process.stdin.on("end", () => { const plugin = JSON.parse(input).installed.find(item => item.pluginId === "cowart@cowart-github"); if (!plugin) { console.error("Cowart is not installed"); process.exit(1); } process.stdout.write(plugin.version); });'
-)"
-cowart_codex_dir="${CODEX_HOME:-$HOME/.codex}"
-cowart_plugin_dir="$cowart_codex_dir/plugins/cache/cowart-github/cowart/$cowart_version"
-
-test -f "$cowart_plugin_dir/package.json"
-test -f "$cowart_plugin_dir/.codex-marketplace-install.json"
-printf 'Installing Cowart dependencies in: %s\n' "$cowart_plugin_dir"
-npm install --prefix "$cowart_plugin_dir"
-test -f "$cowart_plugin_dir/node_modules/tldraw/package.json"
-```
-
-These checks ensure that `npm install` writes to the real plugin cache, such as `~/.codex/plugins/cache/cowart-github/cowart/0.1.25`, rather than the current repository or the `.codex/.tmp/marketplaces/cowart-github` marketplace snapshot. Do not reuse another directory's `node_modules` through a symlink; every installed version should have complete dependencies in its own cache directory.
-
-If `cowart-github` is already registered, skip the first `marketplace add` command. After dependency installation and verification succeed, completely quit and restart Codex once so the new skills and MCP tools are fully loaded.
+If `cowart-github` is already registered, skip the first `marketplace add` command. After installation, completely quit and restart Codex once so the new skills, MCP tools, and dependencies are fully loaded.
 
 Codex automatically checks this Git marketplace when its plugin system starts and refreshes the installed Cowart plugin when the remote `main` branch changes. To check for an update immediately, run:
 
@@ -80,7 +60,7 @@ Codex automatically checks this Git marketplace when its plugin system starts an
 codex plugin marketplace upgrade cowart-github
 ```
 
-An update may replace the plugin cache. After updating, repeat the cache-directory resolution, `npm install --prefix "$cowart_plugin_dir"`, and `tldraw` file check above, then completely quit and restart Codex.
+An update may replace the plugin cache. After updating, completely quit and restart Codex; Cowart checks for and installs missing dependencies the first time its MCP server starts after the restart.
 
 ## Usage
 
