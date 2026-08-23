@@ -54,6 +54,7 @@ import {
   useEditor,
   useIsEditing,
   useTranslation,
+  useToasts,
   useUiEvents,
   useValue
 } from 'tldraw'
@@ -183,6 +184,8 @@ const ANNOTATION_EDIT_NEAR_MARGIN_MIN = 160
 const ANNOTATION_EDIT_NEAR_MARGIN_MAX = 720
 const ANNOTATION_EDIT_RELATED_TEXT_MARGIN = 120
 const ANNOTATION_EDIT_STATUS_RESET_MS = 2200
+const ANNOTATION_EDIT_MAX_EXPORT_DIMENSION = 4096
+const ANNOTATION_EDIT_MAX_EXPORT_PIXELS = 16_000_000
 const ANNOTATION_EDIT_COLORS = new Set(['red', 'yellow', 'orange'])
 const HTML_DRAFT_CAPTURE_DELAY_MS = 2000
 const HTML_DRAFT_ASSET_RETRY_DELAYS_MS = [0, 200, 600, 1400]
@@ -1257,6 +1260,35 @@ function getAnnotationEditExportPixelRatio(bounds) {
   return 2
 }
 
+function getAnnotationEditExportSize(exportBounds) {
+  const pixelRatio = getAnnotationEditExportPixelRatio(exportBounds)
+  return {
+    pixelRatio,
+    width: Math.max(1, Math.round(exportBounds.w * pixelRatio)),
+    height: Math.max(1, Math.round(exportBounds.h * pixelRatio))
+  }
+}
+
+function isAnnotationEditExportTooLarge({ width, height }) {
+  return (
+    Math.max(width, height) > ANNOTATION_EDIT_MAX_EXPORT_DIMENSION ||
+    width * height > ANNOTATION_EDIT_MAX_EXPORT_PIXELS
+  )
+}
+
+function prepareAnnotationEditRequest(editor, imageShapeId) {
+  const shapeIds = collectAnnotationEditShapeIds(editor, imageShapeId)
+  const rawBounds = editor.getShapesPageBounds(shapeIds)
+  if (!rawBounds) throw new Error('无法计算截图范围。')
+
+  const exportBounds = expandBox(rawBounds, ANNOTATION_EDIT_EXPORT_PADDING)
+  return {
+    shapeIds,
+    exportBounds,
+    exportSize: getAnnotationEditExportSize(exportBounds)
+  }
+}
+
 function annotationEditScreenshotFileName() {
   const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
   return `annotation-edit-${timestamp}.png`
@@ -1311,19 +1343,15 @@ function supportsCowartMessageImages() {
   return Boolean(cowartHostCapabilities()?.message?.image)
 }
 
-async function sendAnnotationEditRequest(editor, imageShapeId) {
-  const shapeIds = collectAnnotationEditShapeIds(editor, imageShapeId)
-  const rawBounds = editor.getShapesPageBounds(shapeIds)
-  if (!rawBounds) throw new Error('无法计算截图范围。')
-
-  const exportBounds = expandBox(rawBounds, ANNOTATION_EDIT_EXPORT_PADDING)
+async function sendAnnotationEditRequest(editor, imageShapeId, request) {
+  const { shapeIds, exportBounds, exportSize } = request
   const exportResult = await editor.toImageDataUrl(shapeIds, {
     bounds: exportBounds,
     background: true,
     darkMode: false,
     format: 'png',
     padding: 0,
-    pixelRatio: getAnnotationEditExportPixelRatio(exportBounds)
+    pixelRatio: exportSize.pixelRatio
   })
   const screenshotAsset = await saveCowartReferenceImage({
     anchorShapeId: imageShapeId,
@@ -5514,6 +5542,7 @@ function CowartAltTextEditor({ shapeId, onClose }) {
 
 function CowartAnnotationEditToolbarButton({ imageShapeId }) {
   const editor = useEditor()
+  const { addToast } = useToasts()
   const [status, setStatus] = useState('idle')
 
   useEffect(() => {
@@ -5525,9 +5554,29 @@ function CowartAnnotationEditToolbarButton({ imageShapeId }) {
   async function handleClick() {
     if (status === 'sending') return
 
+    let request
+    try {
+      request = prepareAnnotationEditRequest(editor, imageShapeId)
+    } catch (error) {
+      console.error(error)
+      setStatus('error')
+      return
+    }
+
+    if (isAnnotationEditExportTooLarge(request.exportSize)) {
+      const { width, height } = request.exportSize
+      addToast({
+        id: 'annotation-edit-image-too-large',
+        title: '当前图片尺寸太大，暂不支持',
+        description: `图片与标注的导出尺寸为 ${width} × ${height}。请将图片缩小到长边不超过 ${ANNOTATION_EDIT_MAX_EXPORT_DIMENSION}px、总像素不超过 1600 万，或将图片外的标注移近后重试。`,
+        severity: 'error'
+      })
+      return
+    }
+
     setStatus('sending')
     try {
-      await sendAnnotationEditRequest(editor, imageShapeId)
+      await sendAnnotationEditRequest(editor, imageShapeId, request)
       setStatus('sent')
     } catch (error) {
       console.error(error)
