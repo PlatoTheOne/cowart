@@ -15,6 +15,17 @@ export const COWART_STATIC_BUILD_DIR = process.env.COWART_WIDGET_STATIC_DIR
   || path.join(tmpdir(), `cowart-widget-build-v${pluginVersion}`);
 
 const BUILD_MARKER_FILE = ".cowart-widget-build.json";
+const WIDGET_BUILD_DEPENDENCIES = [
+  "@tiptap/pm",
+  "@tldraw/assets",
+  "@vitejs/plugin-react",
+  "html2canvas",
+  "lucide-react",
+  "react",
+  "react-dom",
+  "tldraw",
+  "vite",
+];
 
 let cachedStaticHtml = "";
 let pendingStaticHtml = null;
@@ -30,7 +41,6 @@ export async function cowartStaticHtml() {
 }
 
 async function buildCowartStaticHtml() {
-  await ensureViteBinary();
   await ensureStaticBuildDir();
   return inlineViteBuild(COWART_STATIC_BUILD_DIR);
 }
@@ -42,16 +52,35 @@ async function ensureStaticBuildDir() {
     if (marker?.sourceHash === sourceHash) return;
   }
 
+  await ensureWidgetBuildDependencies();
   await runViteBuild(COWART_STATIC_BUILD_DIR);
   await writeBuildMarker(sourceHash);
 }
 
-async function ensureViteBinary() {
-  if (existsSync(viteBinaryPath())) return;
+function widgetDependencyDir(packageName) {
+  return pluginPath("node_modules", ...packageName.split("/"));
+}
+
+function missingWidgetBuildDependencies() {
+  return WIDGET_BUILD_DEPENDENCIES.filter(
+    (packageName) => !existsSync(widgetDependencyDir(packageName)),
+  );
+}
+
+async function ensureWidgetBuildDependencies() {
+  const missingBeforeInstall = missingWidgetBuildDependencies();
+  if (missingBeforeInstall.length === 0 && existsSync(viteBinaryPath())) return;
 
   await runNpmInstall();
-  if (!existsSync(viteBinaryPath())) {
-    throw new Error("Missing Vite dependency after npm install in the Cowart plugin directory.");
+  const missingAfterInstall = missingWidgetBuildDependencies();
+  if (missingAfterInstall.length > 0 || !existsSync(viteBinaryPath())) {
+    const missing = [
+      ...missingAfterInstall,
+      ...(!existsSync(viteBinaryPath()) ? ["vite executable"] : []),
+    ];
+    throw new Error(
+      `Missing Cowart widget build dependencies after npm install: ${missing.join(", ")}.`,
+    );
   }
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "cowart-canvas",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "node ./scripts/vite-build-once.mjs",
     "preview": "vite preview",
+    "probe:mcp:tools": "node ./scripts/probe-mcp.mjs --tools-only",
     "probe:mcp": "node ./scripts/probe-mcp.mjs",
     "probe:analytics": "node ./scripts/probe-analytics.mjs",
     "probe:ga4": "node ./scripts/probe-ga4.mjs",

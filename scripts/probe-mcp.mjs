@@ -5,15 +5,20 @@ import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
+const transportEnvironment = Object.fromEntries(
+  Object.entries(process.env).filter(([, value]) => typeof value === "string"),
+);
 const transport = new StdioClientTransport({
   command: "node",
   args: ["./scripts/start-mcp.mjs"],
+  env: transportEnvironment,
 });
 
 const client = new Client({
   name: "cowart-probe",
   version: "0.1.0",
 });
+const toolsOnly = process.argv.includes("--tools-only");
 
 await client.connect(transport);
 
@@ -29,6 +34,7 @@ function isCanvasDirectory(value) {
 }
 
 try {
+  probe: {
   const tools = await client.listTools();
   const toolNames = tools.tools.map((tool) => tool.name);
   const requiredTools = [
@@ -81,6 +87,10 @@ try {
   }
   if (renderResult.structuredContent?.projectDir !== projectDir) {
     throw new Error("Cowart render tool did not preserve the requested projectDir.");
+  }
+  if (toolsOnly) {
+    console.log("OK: Cowart MCP tools are available before the widget resource is built.");
+    break probe;
   }
 
   const stateResult = await client.callTool({
@@ -246,6 +256,7 @@ try {
   }
 
   console.log("OK: Cowart MCP tools and native widget resource are available.");
+  }
 } finally {
   if (downloadedProbePath) {
     await unlink(downloadedProbePath).catch(() => undefined);

@@ -1,15 +1,15 @@
 ---
 name: cowart-open-canvas
-description: Primary entry skill for every Cowart workflow. Whenever the user explicitly invokes Cowart or any Cowart skill applies, ensure cowart_mcp is loaded, make render_cowart_canvas_widget available, and open or refresh the native tldraw canvas before other Cowart work.
+description: Open or refresh the native Cowart canvas. Whenever the user explicitly invokes Cowart or any Cowart skill applies, load the cowart_mcp MCP server and call its render_cowart_canvas_widget tool before any other Cowart work.
 ---
 
 # Cowart Open Canvas
 
-This is Cowart's required bootstrap skill. Treat an explicit `@Cowart` invocation as sufficient reason to load the Cowart MCP surface even when the remaining user text is short or ambiguous. Do not begin another Cowart skill until `cowart_mcp` is available and the native canvas has been opened or refreshed for the active project.
+The actual canvas-opening capability is the `cowart_mcp` MCP server and its `render_cowart_canvas_widget` tool. This skill documents the orchestration; it is not the implementation that renders the canvas. Treat an explicit `@Cowart` invocation as sufficient reason to load `cowart_mcp`, even when the remaining user text is short or ambiguous. Do not begin other Cowart work until `render_cowart_canvas_widget` has opened or refreshed the native canvas for the active project.
 
 ## Workflow
 
-1. Ensure the `cowart_mcp` tool namespace is loaded or discoverable and that `render_cowart_canvas_widget` is available. Then use that tool to open or refresh the canvas as a native Codex widget. Pass the user's active Codex workspace as `projectDir`; do not pass the Cowart plugin repository directory.
+1. Ensure the `cowart_mcp` MCP server is loaded or discoverable and that its `render_cowart_canvas_widget` tool is available. The host may expose the complete tool name as `mcp__cowart_mcp__render_cowart_canvas_widget`. Call the tool to open or refresh the canvas as a native Codex widget. Pass the user's active Codex workspace as `projectDir`; do not pass the Cowart plugin repository directory.
 
 ```json
 {

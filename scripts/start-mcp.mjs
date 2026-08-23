@@ -4,16 +4,10 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const REQUIRED_DEPENDENCIES = [
+const MCP_RUNTIME_DEPENDENCIES = [
   "@modelcontextprotocol/ext-apps",
   "@modelcontextprotocol/sdk",
-  "@tldraw/assets",
-  "@vitejs/plugin-react",
   "fractional-indexing",
-  "react",
-  "react-dom",
-  "tldraw",
-  "vite",
   "zod",
 ];
 
@@ -22,7 +16,7 @@ function dependencyDir(packageName) {
 }
 
 function missingDependencies() {
-  return REQUIRED_DEPENDENCIES.filter((packageName) => !existsSync(dependencyDir(packageName)));
+  return MCP_RUNTIME_DEPENDENCIES.filter((packageName) => !existsSync(dependencyDir(packageName)));
 }
 
 function npmInstallCommand() {

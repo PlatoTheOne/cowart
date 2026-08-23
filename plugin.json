@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "cowart",
-  "version": "0.1.25",
-  "description": "A native tldraw canvas for visual thinking and image workflows. cowart-open-canvas is Cowart's primary entry skill: whenever Cowart is invoked, load cowart_mcp and make render_cowart_canvas_widget available before any other Cowart work.",
+  "version": "0.1.26",
+  "description": "A native tldraw canvas for visual thinking and image workflows. Whenever Cowart is invoked, load the cowart_mcp MCP server and use its render_cowart_canvas_widget tool to open or refresh the native canvas before any other Cowart work.",
   "author": {
     "name": "ZHONG XIN",
     "email": "zhongxin123456@gmail.com",

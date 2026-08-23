@@ -9,7 +9,6 @@ if [ ! -d node_modules ] \
   || [ ! -d node_modules/fractional-indexing ] \
   || [ ! -d node_modules/@modelcontextprotocol/ext-apps ] \
   || [ ! -d node_modules/@modelcontextprotocol/sdk ] \
-  || [ ! -d node_modules/@tldraw/assets ] \
   || [ ! -d node_modules/zod ]; then
   npm install
 fi

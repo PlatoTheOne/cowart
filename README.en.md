@@ -29,7 +29,7 @@ Send the following message to Codex:
 Please install the Cowart Codex plugin through the Git marketplace bundled with its repository.
 First run codex plugin marketplace add zhongerxin/Cowart --ref main,
 then run codex plugin add cowart@cowart-github and use codex plugin list to confirm it is enabled.
-When Cowart starts its MCP server for the first time, it automatically runs npm install in its own plugin directory;
+Cowart starts its MCP server and exposes its tools first; only the first real canvas render with missing widget dependencies runs npm install in the plugin directory;
 do not install dependencies manually in the current repository or a marketplace snapshot.
 Do not clone the repository into the personal marketplace. When installation finishes, clearly remind me
 to completely quit and restart Codex once before using Cowart.
@@ -50,7 +50,7 @@ codex plugin add cowart@cowart-github
 codex plugin list
 ```
 
-You do not need to locate the plugin cache manually. When Cowart starts its MCP server for the first time, it checks its dependencies. If packages such as `tldraw` are missing, the startup script resolves the real plugin directory from its own location and automatically runs `npm install` there. The first startup requires working Node.js, npm, and network access, so it may take a few extra seconds.
+You do not need to locate the plugin cache manually. Cowart checks only its small server-side runtime dependency set while starting the MCP server, so a missing `tldraw` package cannot block discovery of `render_cowart_canvas_widget`. The first time the canvas is actually opened, Cowart checks for widget build dependencies such as `tldraw`, React, and Vite and runs `npm install` in the real plugin directory only when needed. Codex can therefore discover the tools first; the first render still requires working Node.js, npm, and network access and may take a few extra seconds.
 
 If `cowart-github` is already registered, skip the first `marketplace add` command. After installation, completely quit and restart Codex once so the new skills, MCP tools, and dependencies are fully loaded.
 
@@ -60,7 +60,7 @@ Codex automatically checks this Git marketplace when its plugin system starts an
 codex plugin marketplace upgrade cowart-github
 ```
 
-An update may replace the plugin cache. After updating, completely quit and restart Codex; Cowart checks for and installs missing dependencies the first time its MCP server starts after the restart.
+An update may replace the plugin cache. After updating, completely quit and restart Codex; Cowart loads its MCP tools first and checks or installs missing widget dependencies only when the canvas is actually opened.
 
 ## Usage
 
