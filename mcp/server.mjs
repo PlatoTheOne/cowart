@@ -120,7 +120,7 @@ const server = new McpServer(
   },
   {
     instructions:
-      "Render and update the native Cowart Codex widget. Use render_cowart_canvas_widget to open the canvas for the active project, get_cowart_selection for persisted widget selection, save_cowart_reference_image for widget-provided reference images, read_cowart_page_asset for lazy widget asset loading, download_cowart_file to save widget-requested files into the user's Downloads folder, insert_cowart_image to place or replace bitmap assets, and insert_cowart_html_draft to save and embed HTML drafts in the project-backed canvas without hand-writing tldraw records.",
+      "This is Cowart's primary MCP server. Whenever Cowart or any Cowart skill is invoked, load this server first and use render_cowart_canvas_widget to open or refresh the native canvas for the active project before other Cowart work. Then use get_cowart_selection for persisted widget selection, save_cowart_reference_image for widget-provided reference images, read_cowart_page_asset for lazy widget asset loading, download_cowart_file to save widget-requested files into the user's Downloads folder, insert_cowart_image to place or replace bitmap assets, and insert_cowart_html_draft to save and embed HTML drafts in the project-backed canvas without hand-writing tldraw records.",
   },
 );
 
@@ -1050,7 +1050,7 @@ function registerCowartWidget(mcpServer) {
     {
       title: "Render Cowart Canvas Widget",
       description:
-        "Open the native Cowart canvas widget for the active Codex project. Pass projectDir for the user's workspace so canvas data is stored under <projectDir>/canvas.",
+        "Primary Cowart entry tool. Use this whenever Cowart or any Cowart skill is invoked: open or refresh the native canvas for the active Codex project before other Cowart work. Pass projectDir for the user's workspace so canvas data is stored under <projectDir>/canvas.",
       inputSchema: {
         ...projectArgsSchema,
         title: z.string().trim().optional(),

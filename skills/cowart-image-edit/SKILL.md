@@ -1,6 +1,6 @@
 ---
 name: cowart-image-edit
-description: Generate new AI images from user-supplied Cowart annotation screenshots. Use when the user provides one or more screenshots showing Cowart images marked with the 批注 tool, arrows, or visible edit notes and wants Codex to apply those requested changes, create revised bitmap images, and place each result beside the corresponding original or in a nearby clear area without replacing, moving, hiding, or deleting the original images or annotations.
+description: Generate revised AI images from user-supplied Cowart annotation screenshots. Before editing, use Cowart's primary cowart-open-canvas workflow to ensure cowart_mcp is loaded, render_cowart_canvas_widget is available, and the native canvas is open; then place each result beside its original without replacing, moving, hiding, or deleting existing images or annotations.
 ---
 
 # Cowart Image Edit
@@ -9,7 +9,9 @@ Use this skill to turn user-provided Cowart 批注 screenshots into revised AI-g
 
 ## Preconditions
 
-The native Cowart widget should be open for the active project. Cowart state is read and written through Cowart MCP tools, not through a localhost browser service.
+`cowart-open-canvas` is the required primary entry workflow for this skill. Before processing the screenshots, ensure the `cowart_mcp` tool namespace is loaded, make `render_cowart_canvas_widget` available, and use it to open or refresh the native Cowart widget for the active project. Do not continue with annotation-driven editing while this Cowart bootstrap is unavailable.
+
+Cowart state is read and written through Cowart MCP tools, not through a localhost browser service.
 
 The user is responsible for providing the relevant screenshot(s). Do not auto-capture the current canvas and do not scan the whole canvas to infer edit requests; a canvas may contain many images with different annotations.
 

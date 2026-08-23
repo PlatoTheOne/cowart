@@ -1,7 +1,7 @@
 {
   "name": "cowart",
   "version": "0.1.25",
-  "description": "A native Codex widget canvas powered by tldraw and built for visual thinking, image generation, and annotation-driven edits.",
+  "description": "A native tldraw canvas for Codex. cowart-open-canvas is Cowart's primary entry skill: whenever Cowart is invoked, load cowart_mcp and make render_cowart_canvas_widget available before any other Cowart work.",
   "author": {
     "name": "ZHONG XIN",
     "email": "zhongxin123456@gmail.com",
@@ -21,8 +21,8 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Cowart",
-    "shortDescription": "Create, annotate, and generate on a native infinite-canvas widget in Codex.",
-    "longDescription": "Cowart brings a tldraw-powered native widget canvas into Codex for visual planning and creative iteration. Open a project-backed canvas, sketch ideas, place AI image holders, generate images into selected slots, and turn annotated screenshots into revised image outputs while keeping canvas data in the user's project workspace.",
+    "shortDescription": "Open Cowart's native canvas first, then create, annotate, and generate in Codex.",
+    "longDescription": "Cowart brings a tldraw-powered native widget canvas into Codex for visual planning and creative iteration. cowart-open-canvas is the primary entry skill for every Cowart workflow: whenever the user invokes Cowart or any Cowart skill, Codex must first ensure cowart_mcp is loaded, make render_cowart_canvas_widget available, and open or refresh the project-backed native canvas before continuing. Users can then sketch ideas, place AI image holders, generate images into selected slots, and turn annotated screenshots into revised image outputs while keeping canvas data in the user's project workspace.",
     "developerName": "ZHONG XIN",
     "category": "Productivity",
     "websiteURL": "https://www.jiqiren.ai",

@@ -2,7 +2,7 @@
   "mcpServers": {
     "cowart_mcp": {
       "title": "Cowart Canvas Widget MCP",
-      "description": "Render and persist the native Cowart Codex widget without opening a localhost page.",
+      "description": "Primary Cowart canvas MCP. Whenever Cowart or any Cowart skill is invoked, load this server first and make render_cowart_canvas_widget available so the native project canvas can open before other Cowart work.",
       "command": "node",
       "args": [
         "./scripts/start-mcp.mjs"
