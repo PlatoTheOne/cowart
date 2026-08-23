@@ -1,6 +1,6 @@
 ---
 name: cowart-image-gen
-description: Generate and place a final AI bitmap on the Cowart canvas. Before generation, load the cowart_mcp MCP server and call its render_cowart_canvas_widget tool to open or refresh the native canvas; then replace a selected AI 图片 holder or insert the image into the current page.
+description: Generate and place a final AI bitmap on the Cowart canvas, replacing a selected AI 图片 holder or inserting the image into the current page.
 ---
 
 # Cowart Image Gen
@@ -9,7 +9,7 @@ Use this skill when the user wants an AI-generated image placed onto the Cowart 
 
 ## Preconditions
 
-Before reading selection state or generating an image, load the `cowart_mcp` MCP server and call its `render_cowart_canvas_widget` tool to open or refresh the native Cowart widget for the user's active project. The host may expose the complete name as `mcp__cowart_mcp__render_cowart_canvas_widget`. Do not continue with image generation while this MCP server or tool is unavailable.
+Ensure the `cowart_mcp` tools required by this workflow are available. Do not call `render_cowart_canvas_widget` as a routine prerequisite: requests sent from the Cowart widget already have an open canvas, and the existing widget synchronizes inserted images from MCP-backed storage. If the user separately asks to open, reopen, or explicitly refresh the canvas, handle that request once with the canvas-opening workflow.
 
 Cowart state is read and written through Cowart MCP tools, not through a localhost browser service.
 

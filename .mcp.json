@@ -2,7 +2,7 @@
   "mcpServers": {
     "cowart_mcp": {
       "title": "Cowart Canvas Widget MCP",
-      "description": "Core Cowart canvas MCP server. Whenever Cowart or any Cowart skill is invoked, load cowart_mcp first and use its render_cowart_canvas_widget tool to open or refresh the native project canvas before other Cowart work.",
+      "description": "Core Cowart canvas MCP server. Use render_cowart_canvas_widget to open, reopen, or explicitly refresh the project canvas; use the state and insertion tools without rerendering when a Cowart widget is already open.",
       "command": "node",
       "args": [
         "./scripts/start-mcp.mjs"

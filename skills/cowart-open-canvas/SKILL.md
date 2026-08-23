@@ -1,15 +1,15 @@
 ---
 name: cowart-open-canvas
-description: Open or refresh the native Cowart canvas. Whenever the user explicitly invokes Cowart or any Cowart skill applies, load the cowart_mcp MCP server and call its render_cowart_canvas_widget tool before any other Cowart work.
+description: Open, reopen, or explicitly refresh the native Cowart canvas when the user asks to see it, or when a bare @Cowart invocation has no other requested workflow.
 ---
 
 # Cowart Open Canvas
 
-The actual canvas-opening capability is the `cowart_mcp` MCP server and its `render_cowart_canvas_widget` tool. This skill documents the orchestration; it is not the implementation that renders the canvas. Treat an explicit `@Cowart` invocation as sufficient reason to load `cowart_mcp`, even when the remaining user text is short or ambiguous. Do not begin other Cowart work until `render_cowart_canvas_widget` has opened or refreshed the native canvas for the active project.
+The actual canvas-opening capability is the `cowart_mcp` MCP server and its `render_cowart_canvas_widget` tool. Use this skill when the user asks to open, reopen, or explicitly refresh the canvas. A bare `@Cowart` invocation with no other actionable request may also open the canvas. Do not use this skill as a prerequisite for image generation, annotation editing, HTML, Slides, or follow-up requests sent from an already-open Cowart widget.
 
 ## Workflow
 
-1. Ensure the `cowart_mcp` MCP server is loaded or discoverable and that its `render_cowart_canvas_widget` tool is available. The host may expose the complete tool name as `mcp__cowart_mcp__render_cowart_canvas_widget`. Call the tool to open or refresh the canvas as a native Codex widget. Pass the user's active Codex workspace as `projectDir`; do not pass the Cowart plugin repository directory.
+1. Ensure the `cowart_mcp` MCP server is loaded or discoverable and that its `render_cowart_canvas_widget` tool is available. The host may expose the complete tool name as `mcp__cowart_mcp__render_cowart_canvas_widget`. Call the tool once for the user's open, reopen, or explicit refresh request. Pass the user's active Codex workspace as `projectDir`; do not pass the Cowart plugin repository directory.
 
 ```json
 {
@@ -30,4 +30,4 @@ canvas/pages/<page-id>/assets/
 
 ## Constraints
 
-Do not launch the old local web service, inspect canvas files, run builds, check storage layout, take screenshots, or perform other validation steps unless opening the widget fails or the user explicitly asks for those checks. The `scripts/start-canvas.sh` path is now only a local-development fallback.
+Do not call `render_cowart_canvas_widget` again merely because another Cowart skill applies or an existing widget sends a follow-up request. The existing widget synchronizes MCP-backed canvas changes itself. Do not launch the old local web service, inspect canvas files, run builds, check storage layout, take screenshots, or perform other validation steps unless opening the widget fails or the user explicitly asks for those checks. The `scripts/start-canvas.sh` path is now only a local-development fallback.

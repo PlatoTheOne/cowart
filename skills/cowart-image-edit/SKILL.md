@@ -1,6 +1,6 @@
 ---
 name: cowart-image-edit
-description: Generate revised AI images from user-supplied Cowart annotation screenshots. Before editing, load the cowart_mcp MCP server and call its render_cowart_canvas_widget tool to open or refresh the native canvas; then place each result beside its original without replacing, moving, hiding, or deleting existing images or annotations.
+description: Generate revised AI images from user-supplied Cowart annotation screenshots and place each result beside its original without replacing, moving, hiding, or deleting existing images or annotations.
 ---
 
 # Cowart Image Edit
@@ -9,7 +9,7 @@ Use this skill to turn user-provided Cowart 批注 screenshots into revised AI-g
 
 ## Preconditions
 
-Before processing the screenshots, load the `cowart_mcp` MCP server and call its `render_cowart_canvas_widget` tool to open or refresh the native Cowart widget for the active project. The host may expose the complete name as `mcp__cowart_mcp__render_cowart_canvas_widget`. Do not continue with annotation-driven editing while this MCP server or tool is unavailable.
+Ensure the `cowart_mcp` tools required by this workflow are available. Do not call `render_cowart_canvas_widget` as a routine prerequisite: annotation requests sent from the Cowart widget already have an open canvas, and the existing widget synchronizes inserted results from MCP-backed storage. If the user separately asks to open, reopen, or explicitly refresh the canvas, handle that request once with the canvas-opening workflow.
 
 Cowart state is read and written through Cowart MCP tools, not through a localhost browser service.
 

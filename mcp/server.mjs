@@ -120,7 +120,7 @@ const server = new McpServer(
   },
   {
     instructions:
-      "cowart_mcp is Cowart's core canvas MCP server. Whenever Cowart or any Cowart skill is invoked, load cowart_mcp first and call render_cowart_canvas_widget to open or refresh the native canvas for the active project before other Cowart work. Then use get_cowart_selection for persisted widget selection, save_cowart_reference_image for widget-provided reference images, read_cowart_page_asset for lazy widget asset loading, download_cowart_file to save widget-requested files into the user's Downloads folder, insert_cowart_image to place or replace bitmap assets, and insert_cowart_html_draft to save and embed HTML drafts in the project-backed canvas without hand-writing tldraw records.",
+      "cowart_mcp is Cowart's core canvas MCP server. Use render_cowart_canvas_widget when the user asks to open, reopen, or explicitly refresh the native canvas. When a Cowart widget is already open, reuse it and use get_cowart_selection for persisted widget selection, save_cowart_reference_image for widget-provided reference images, read_cowart_page_asset for lazy widget asset loading, download_cowart_file to save widget-requested files into the user's Downloads folder, insert_cowart_image to place or replace bitmap assets, and insert_cowart_html_draft to save and embed HTML drafts without rendering another widget tab.",
   },
 );
 
@@ -1050,7 +1050,7 @@ function registerCowartWidget(mcpServer) {
     {
       title: "Render Cowart Canvas Widget",
       description:
-        "Core canvas-opening tool from the cowart_mcp MCP server. Whenever Cowart or any Cowart skill is invoked, use render_cowart_canvas_widget to open or refresh the native canvas for the active Codex project before other Cowart work. Pass projectDir for the user's workspace so canvas data is stored under <projectDir>/canvas.",
+        "Open, reopen, or explicitly refresh the native Cowart canvas for the active Codex project. Pass projectDir for the user's workspace so canvas data is stored under <projectDir>/canvas. A successful call creates a widget surface, so do not use this tool as a routine prerequisite when a Cowart canvas is already open.",
       inputSchema: {
         ...projectArgsSchema,
         title: z.string().trim().optional(),

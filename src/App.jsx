@@ -147,8 +147,11 @@ const ANNOTATION_SELECT_TEXT_MAX_ATTEMPTS = 8
 const ANNOTATION_SELECT_TEXT_SETTLE_ATTEMPTS = 4
 const ANNOTATION_EDIT_TOOL_LABEL = '按标注修改'
 const ANNOTATION_HTML_TOOL_LABEL = '按标注生成 Html'
+const COWART_WIDGET_ALREADY_OPEN_PROMPT_LINE =
+  '本请求来自已经打开的 Cowart 画布；请复用当前画布，不要调用 render_cowart_canvas_widget，除非用户明确要求重新打开或刷新。'
 const ANNOTATION_EDIT_PROMPT = [
   '[@Cowart](plugin://cowart@cowart-github) 按标注修改',
+  COWART_WIDGET_ALREADY_OPEN_PROMPT_LINE,
   '',
   '请根据这张 Cowart 截图里的标注修改当前选中的图片：',
   '- 截图包含当前图片，以及连到图片里或图片附近的标注箭头和标注文字。',
@@ -164,6 +167,7 @@ const AI_HTML_LOCAL_ASSET_PROMPT_LINES = [
 ]
 const ANNOTATION_HTML_PROMPT = [
   '[@Cowart](plugin://cowart@cowart-github) 按标注生成 AI HTML',
+  COWART_WIDGET_ALREADY_OPEN_PROMPT_LINE,
   '',
   '请根据这张 Cowart 截图里的当前图片和周围标注，生成一个新的单文件 HTML 草稿：',
   '- 截图包含当前选中的图片，以及连到图片里或图片附近的标注箭头和标注文字。',
@@ -188,6 +192,7 @@ const HTML_DRAFT_ANNOTATION_EDIT_LABEL = '按标注修改'
 const HTML_DRAFT_ANNOTATION_IMAGE_LABEL = '按标注生图'
 const HTML_DRAFT_ANNOTATION_EDIT_PROMPT = [
   '[@Cowart](plugin://cowart@cowart-github) 按标注修改 AI HTML',
+  COWART_WIDGET_ALREADY_OPEN_PROMPT_LINE,
   '',
   '请根据这张 Cowart 截图里的标注修改当前选中的 HTML 草稿：',
   '- 截图包含当前 HTML 草稿，以及草稿周围的标注箭头和标注文字。',
@@ -200,6 +205,7 @@ const HTML_DRAFT_ANNOTATION_EDIT_PROMPT = [
 ].join('\n')
 const HTML_DRAFT_ANNOTATION_IMAGE_PROMPT = [
   '[@Cowart](plugin://cowart@cowart-github) 按标注生图',
+  COWART_WIDGET_ALREADY_OPEN_PROMPT_LINE,
   '',
   '请使用内置 imagegen skill，根据这张 Cowart 截图里的 HTML 草稿和标注生成一张新的干净位图：',
   '- 截图包含当前 HTML 草稿，以及草稿周围的标注箭头和标注文字。',
@@ -210,6 +216,7 @@ const HTML_DRAFT_ANNOTATION_IMAGE_PROMPT = [
 ].join('\n')
 const AI_IMAGE_GENERATION_PROMPT_PREFIX = [
   '[@Cowart](plugin://cowart@cowart-github) 生成图片',
+  COWART_WIDGET_ALREADY_OPEN_PROMPT_LINE,
   '',
   '请根据下面的 prompt 生成一张图片，并替换当前选中的 Cowart AI 图片框；最终画布里应留下普通图片形状，不保留 AI 图片框容器。',
   '默认生成一张；如果用户在 prompt 中明确要求多张图片，则用户要求的数量优先于上面的单数措辞。',
@@ -221,6 +228,7 @@ const AI_IMAGE_GENERATION_PROMPT_PREFIX = [
 ].join('\n')
 const AI_DRAFT_GENERATION_PROMPT_PREFIX = [
   '[@Cowart](plugin://cowart@cowart-github) 生成 AI HTML',
+  COWART_WIDGET_ALREADY_OPEN_PROMPT_LINE,
   '',
   '请根据下面的 prompt 生成一个单文件 HTML 草稿，并把它嵌入当前选中的 Cowart AI HTML 框。',
   '默认生成一个 HTML；如果用户在 prompt 中明确要求多个 HTML、多个方案或多张页面，则用户要求的数量优先于上面的单数措辞。',
@@ -233,6 +241,7 @@ const AI_DRAFT_GENERATION_PROMPT_PREFIX = [
 ].join('\n')
 const AI_SLIDES_GENERATION_PROMPT_PREFIX = [
   '[@Cowart](plugin://cowart@cowart-github) 生成 AI Slides',
+  COWART_WIDGET_ALREADY_OPEN_PROMPT_LINE,
   '',
   '请根据下面的 prompt 生成一套视觉与叙事连贯的 AI Slides。',
   '每一页都必须是完整、独立、可运行的单文件 HTML；CSS 和 JS 尽量内联。',
@@ -241,6 +250,7 @@ const AI_SLIDES_GENERATION_PROMPT_PREFIX = [
 ].join('\n')
 const AI_SLIDES_ANNOTATION_EDIT_PROMPT = [
   '[@Cowart](plugin://cowart@cowart-github) 按标注修改 AI Slides',
+  COWART_WIDGET_ALREADY_OPEN_PROMPT_LINE,
   '',
   '请根据 Cowart 截图中的原 AI Slides 和周围标注，生成一套修改后的新 Slides。',
   '原 AI Slides 和标注必须保持不动；新的目标 AI Slides 已经创建在原 Slides 下方，请只把修改后的页面加入新 Slides。',
