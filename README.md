@@ -29,8 +29,8 @@ English README: [README.en.md](README.en.md)
 请通过 Cowart 仓库自带的 Git marketplace 安装 Cowart Codex 插件。
 先运行 codex plugin marketplace add zhongerxin/Cowart --ref main，
 再运行 codex plugin add cowart@cowart-github，并用 codex plugin list 确认插件已启用。
-Cowart 会先立即启动 MCP 并暴露工具；第一次真正打开画布、且缺少 Widget 依赖时，才会在插件自己的安装目录执行 npm install；
-不要在当前仓库或 marketplace 快照目录手动安装依赖。
+Cowart 发布包已经包含自包含 MCP 和预构建 Widget；安装后不会在插件缓存里执行 npm install，也不要求新用户预装 tldraw；
+不要在当前仓库、插件缓存或 marketplace 快照目录手动安装依赖。
 不要把仓库 clone 到 personal marketplace。安装完成后请明确提醒我：
 必须完全退出并重新启动一次 Codex，再开始使用 Cowart。
 ```
@@ -50,9 +50,9 @@ codex plugin add cowart@cowart-github
 codex plugin list
 ```
 
-不需要手动查找插件缓存目录。Cowart 启动 MCP 时只检查服务端运行所需的小型依赖，避免 `tldraw` 缺失阻塞 `render_cowart_canvas_widget` 的发现。第一次真正打开画布时，如果缺少 `tldraw`、React 或 Vite 等 Widget 构建依赖，Cowart 才会根据自身位置在实际插件目录执行 `npm install`。因此工具可以先被 Codex 发现；首次渲染仍需要可用的 Node.js、npm 和网络，可能会比平时多等几秒。
+不需要手动查找插件缓存目录。Cowart 的 Git 版本已经跟踪自包含 MCP bundle 和预构建的单文件 Widget；Codex 可以直接发现 `render_cowart_canvas_widget`，运行时不会执行 `npm install`，也不依赖插件缓存中的 `node_modules`、tldraw、npm 或网络。开发依赖只用于 Cowart 维护者在发布前重新生成这些产物。
 
-如果 `cowart-github` 已经注册，可以跳过第一条 `marketplace add` 命令。安装后请完全退出并重新启动一次 Codex，让新的 skill、MCP 工具和依赖完整加载。
+如果 `cowart-github` 已经注册，可以跳过第一条 `marketplace add` 命令。安装后请完全退出并重新启动一次 Codex，让新的 skill、MCP 工具和发布产物完整加载。
 
 Codex 会在启动插件系统时自动检查这个 Git marketplace，并在远程 `main` 分支发生变化后刷新已安装的 Cowart。需要立即检查更新时，可以手动运行：
 
@@ -60,7 +60,7 @@ Codex 会在启动插件系统时自动检查这个 Git marketplace，并在远�
 codex plugin marketplace upgrade cowart-github
 ```
 
-更新可能会替换插件缓存。更新后请完全退出并重新启动 Codex；Cowart 会先加载 MCP 工具，并在重启后第一次真正打开画布时检查和安装缺失的 Widget 依赖。
+更新可能会替换插件缓存。更新后请完全退出并重新启动 Codex；Cowart 会直接加载随版本发布的 MCP 和 Widget 产物，不会在新缓存中安装依赖。
 
 ## 使用
 
@@ -136,6 +136,8 @@ npm install
 npm run dev
 npm run build
 ```
+
+`npm run build` 会重新生成并校验 `mcp/generated/` 下需要随 Git 版本提交的自包含 MCP 和 Widget 发布产物。提交源码改动前还应运行 `npm run quality`，其中包含一个没有 `node_modules`、使用全新临时目录且禁止调用 npm 的冷启动探针。
 
 本地开发时仍可以直接启动 Vite 画布服务，并指定用户项目目录：
 

@@ -1,18 +1,8 @@
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import path from "node:path";
-
 import {
   RESOURCE_MIME_TYPE,
   registerAppResource,
 } from "@modelcontextprotocol/ext-apps/server";
-
-const require = createRequire(import.meta.url);
-let cachedMcpAppsGlobalScript = "";
-
-export function readText(...parts) {
-  return readFileSync(path.join(...parts), "utf8");
-}
+import { MCP_APPS_GLOBAL_SCRIPT } from "../generated/mcp-apps-global-script.mjs";
 
 export function inlineWidget({
   html,
@@ -96,7 +86,7 @@ function injectMcpHostBridge(html, { appVersion, initialDisplayMode = "" } = {})
     `window.__COWART_INITIAL_DISPLAY_MODE__=${JSON.stringify(initialDisplayMode)};`,
     "</script>",
     '<script id="cowartMcpAppsBundle">',
-    escapeInlineScript(mcpAppsGlobalScript()),
+    escapeInlineScript(MCP_APPS_GLOBAL_SCRIPT),
     "</script>",
     '<script id="cowartMcpHostBridge">',
     mcpHostBridgeScript(appVersion),
@@ -107,54 +97,6 @@ function injectMcpHostBridge(html, { appVersion, initialDisplayMode = "" } = {})
     return html.replace("</head>", () => `${bridge}\n</head>`);
   }
   return `${bridge}\n${html}`;
-}
-
-function mcpAppsGlobalScript() {
-  if (cachedMcpAppsGlobalScript) return cachedMcpAppsGlobalScript;
-
-  const sourcePath = require.resolve("@modelcontextprotocol/ext-apps/app-with-deps");
-  const source = readFileSync(sourcePath, "utf8");
-  const exportStart = source.lastIndexOf("export{");
-  if (exportStart === -1) {
-    throw new Error("Could not find ext-apps browser export block.");
-  }
-
-  const exportBlock = source.slice(exportStart).match(/^export\{([^}]+)\};?\s*$/s);
-  if (!exportBlock) {
-    throw new Error("Could not parse ext-apps browser export block.");
-  }
-
-  const exportMap = parseExportMap(exportBlock[1]);
-  const requiredExports = [
-    "App",
-    "applyDocumentTheme",
-    "applyHostFonts",
-    "applyHostStyleVariables",
-  ];
-  for (const name of requiredExports) {
-    if (!exportMap.has(name)) throw new Error(`Missing ext-apps browser export: ${name}`);
-  }
-
-  cachedMcpAppsGlobalScript = [
-    source.slice(0, exportStart),
-    ";globalThis.__COWART_MCP_APPS__={",
-    requiredExports.map((name) => `${JSON.stringify(name)}:${exportMap.get(name)}`).join(","),
-    "};",
-  ].join("");
-  return cachedMcpAppsGlobalScript;
-}
-
-function parseExportMap(body) {
-  const exportMap = new Map();
-  for (const rawEntry of body.split(",")) {
-    const entry = rawEntry.trim();
-    if (!entry) continue;
-    const parts = entry.split(/\s+as\s+/);
-    const local = parts[0]?.trim();
-    const exported = (parts[1] || parts[0])?.trim();
-    if (local && exported) exportMap.set(exported, local);
-  }
-  return exportMap;
 }
 
 function escapeInlineScript(source) {

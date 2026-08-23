@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { performance } from "node:perf_hooks";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -8,9 +9,13 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 const transportEnvironment = Object.fromEntries(
   Object.entries(process.env).filter(([, value]) => typeof value === "string"),
 );
+const serverRoot = path.resolve(optionValue("--server-root") || process.cwd());
+const maximumStartupMs = Number(optionValue("--max-startup-ms") || 0);
+transportEnvironment.COWART_PLUGIN_ROOT = serverRoot;
 const transport = new StdioClientTransport({
   command: "node",
   args: ["./scripts/start-mcp.mjs"],
+  cwd: serverRoot,
   env: transportEnvironment,
 });
 
@@ -20,10 +25,12 @@ const client = new Client({
 });
 const toolsOnly = process.argv.includes("--tools-only");
 
+const startupStartedAt = performance.now();
 await client.connect(transport);
 
 let downloadedProbePath = null;
 let downloadedProbeDirectory = null;
+let projectDir = null;
 
 function isCanvasDirectory(value) {
   const canvasDir = String(value || "");
@@ -36,6 +43,12 @@ function isCanvasDirectory(value) {
 try {
   probe: {
   const tools = await client.listTools();
+  const startupMs = performance.now() - startupStartedAt;
+  if (maximumStartupMs > 0 && startupMs > maximumStartupMs) {
+    throw new Error(
+      `Cowart MCP tool discovery took ${Math.round(startupMs)} ms; expected at most ${maximumStartupMs} ms.`,
+    );
+  }
   const toolNames = tools.tools.map((tool) => tool.name);
   const requiredTools = [
     "render_cowart_canvas_widget",
@@ -71,7 +84,7 @@ try {
     throw new Error("Cowart clipboard tool should only be visible to the widget app.");
   }
 
-  const projectDir = await mkdtemp(path.join(tmpdir(), "cowart-widget-probe-"));
+  projectDir = await mkdtemp(path.join(tmpdir(), "cowart-widget-probe-"));
   const renderResult = await client.callTool({
     name: "render_cowart_canvas_widget",
     arguments: {
@@ -89,7 +102,9 @@ try {
     throw new Error("Cowart render tool did not preserve the requested projectDir.");
   }
   if (toolsOnly) {
-    console.log("OK: Cowart MCP tools are available before the widget resource is built.");
+    console.log(
+      `OK: Cowart MCP tools are available before the widget resource is built (${Math.round(startupMs)} ms).`,
+    );
     break probe;
   }
 
@@ -255,7 +270,9 @@ try {
     throw new Error("Cowart widget HTML should be direct static markup without iframe or external asset tags.");
   }
 
-  console.log("OK: Cowart MCP tools and native widget resource are available.");
+  console.log(
+    `OK: Cowart MCP tools and native widget resource are available (${Math.round(startupMs)} ms startup).`,
+  );
   }
 } finally {
   if (downloadedProbePath) {
@@ -264,5 +281,16 @@ try {
   if (downloadedProbeDirectory) {
     await rm(downloadedProbeDirectory, { recursive: true, force: true }).catch(() => undefined);
   }
+  if (projectDir) {
+    await rm(projectDir, { recursive: true, force: true }).catch(() => undefined);
+  }
   await client.close();
+}
+
+function optionValue(name) {
+  const exactIndex = process.argv.indexOf(name);
+  if (exactIndex !== -1) return process.argv[exactIndex + 1] || "";
+  const prefix = `${name}=`;
+  const inline = process.argv.find((arg) => arg.startsWith(prefix));
+  return inline ? inline.slice(prefix.length) : "";
 }

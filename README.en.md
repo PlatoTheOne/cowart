@@ -29,8 +29,8 @@ Send the following message to Codex:
 Please install the Cowart Codex plugin through the Git marketplace bundled with its repository.
 First run codex plugin marketplace add zhongerxin/Cowart --ref main,
 then run codex plugin add cowart@cowart-github and use codex plugin list to confirm it is enabled.
-Cowart starts its MCP server and exposes its tools first; only the first real canvas render with missing widget dependencies runs npm install in the plugin directory;
-do not install dependencies manually in the current repository or a marketplace snapshot.
+Cowart ships a self-contained MCP server and a prebuilt widget; it never runs npm install in the plugin cache and does not require new users to preinstall tldraw;
+do not install dependencies manually in the current repository, plugin cache, or marketplace snapshot.
 Do not clone the repository into the personal marketplace. When installation finishes, clearly remind me
 to completely quit and restart Codex once before using Cowart.
 ```
@@ -50,9 +50,9 @@ codex plugin add cowart@cowart-github
 codex plugin list
 ```
 
-You do not need to locate the plugin cache manually. Cowart checks only its small server-side runtime dependency set while starting the MCP server, so a missing `tldraw` package cannot block discovery of `render_cowart_canvas_widget`. The first time the canvas is actually opened, Cowart checks for widget build dependencies such as `tldraw`, React, and Vite and runs `npm install` in the real plugin directory only when needed. Codex can therefore discover the tools first; the first render still requires working Node.js, npm, and network access and may take a few extra seconds.
+You do not need to locate the plugin cache manually. Cowart's Git release tracks a self-contained MCP bundle and a prebuilt single-file widget. Codex can discover `render_cowart_canvas_widget` without running `npm install` or relying on `node_modules`, tldraw, npm, or network access inside the plugin cache. Development dependencies are used only by Cowart maintainers to regenerate release artifacts before publishing.
 
-If `cowart-github` is already registered, skip the first `marketplace add` command. After installation, completely quit and restart Codex once so the new skills, MCP tools, and dependencies are fully loaded.
+If `cowart-github` is already registered, skip the first `marketplace add` command. After installation, completely quit and restart Codex once so the new skills, MCP tools, and release artifacts are fully loaded.
 
 Codex automatically checks this Git marketplace when its plugin system starts and refreshes the installed Cowart plugin when the remote `main` branch changes. To check for an update immediately, run:
 
@@ -60,7 +60,7 @@ Codex automatically checks this Git marketplace when its plugin system starts an
 codex plugin marketplace upgrade cowart-github
 ```
 
-An update may replace the plugin cache. After updating, completely quit and restart Codex; Cowart loads its MCP tools first and checks or installs missing widget dependencies only when the canvas is actually opened.
+An update may replace the plugin cache. After updating, completely quit and restart Codex; Cowart loads the MCP and widget artifacts shipped with the release and does not install dependencies into the new cache.
 
 ## Usage
 
@@ -136,6 +136,8 @@ npm install
 npm run dev
 npm run build
 ```
+
+`npm run build` regenerates and validates the self-contained MCP and widget release artifacts under `mcp/generated/`; those files must be committed with the Git release. Before committing source changes, also run `npm run quality`, which includes a cold-start probe with no `node_modules`, a fresh temporary directory, and an npm sentinel that fails if runtime installation is attempted.
 
 For local development, you can still start the Vite canvas service directly and pass the active user project directory:
 
