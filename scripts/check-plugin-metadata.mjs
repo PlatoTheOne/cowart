@@ -34,7 +34,8 @@ for (const [source, version] of versions) {
 }
 
 assert.equal(pluginManifest.name, "cowart");
-assert.equal(pluginManifest.repository, "https://github.com/zhongerxin/Cowart");
+// 这个发布分支由 PlatoTheOne fork 持续维护，manifest 必须指向可升级的真实源。
+assert.equal(pluginManifest.repository, "https://github.com/PlatoTheOne/cowart");
 assert.equal(pluginManifest.license, "MIT");
 
 assert.equal(marketplace.name, "cowart-github");

@@ -107,7 +107,8 @@ async function buildWidgetArtifact(outDir) {
   if (!html.includes("Cowart Canvas")) {
     throw new Error("The generated Cowart widget does not include the expected app shell.");
   }
-  return html;
+  // 原始 SVG 等文本会跟随检出平台使用 CRLF/LF；统一换行，保证发布产物可复现。
+  return html.replace(/\r\n?/gu, "\n");
 }
 
 async function buildMcpAppsGlobalModule() {
@@ -175,6 +176,8 @@ function parseExportMap(body) {
 
 async function inlineViteBuild(outDir) {
   let html = await readFile(path.join(outDir, "index.html"), "utf8");
+  // Vite 会保留入口 HTML 的平台换行与空行；先规范化外壳，再注入大型 CSS/JS 内容。
+  html = html.replace(/\r\n?/gu, "\n").replace(/\n[ \t]*\n+/gu, "\n");
   const inlineScripts = [];
   const consumedAssets = new Set();
 

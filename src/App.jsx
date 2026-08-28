@@ -10,7 +10,6 @@ import {
   CloudToolbarItem,
   DefaultImageToolbar,
   DefaultImageToolbarContent,
-  DefaultToolbar,
   DefaultColorStyle,
   DefaultStylePanel,
   DefaultStylePanelContent,
@@ -92,6 +91,8 @@ import {
   isCanvasSnapshot,
   sanitizeCanvasSnapshotForTldraw
 } from './canvasSnapshot.js'
+import { clearCowartImageAlignment, syncCowartImageAlignment } from './cowartAlignment.js'
+import { CowartDraggableToolbar } from './CowartDraggableToolbar.jsx'
 
 const SELECTION_STATE_ELEMENT_ID = 'cowart-selection-state'
 const PAGE_ASSETS_ROUTE = '/page-assets/'
@@ -146,6 +147,41 @@ const ANNOTATION_MAX_BEND = 48
 const ANNOTATION_LABEL_POSITION = 0
 const ANNOTATION_SELECT_TEXT_MAX_ATTEMPTS = 8
 const ANNOTATION_SELECT_TEXT_SETTLE_ATTEMPTS = 4
+const COWART_TOOL_IDS = [
+  ANNOTATION_TOOL_ID,
+  'select',
+  'hand',
+  AI_IMAGE_TOOL_ID,
+  AI_DRAFT_TOOL_ID,
+  AI_SLIDES_TOOL_ID,
+  'asset',
+  'draw',
+  'eraser',
+  'text',
+  'arrow',
+  'note',
+  'rectangle',
+  'ellipse',
+  'triangle',
+  'diamond',
+  'hexagon',
+  'oval',
+  'rhombus',
+  'star',
+  'cloud',
+  'heart',
+  'x-box',
+  'check-box',
+  'arrow-left',
+  'arrow-up',
+  'arrow-down',
+  'arrow-right',
+  'line',
+  'highlight',
+  'laser',
+  'frame'
+]
+const COWART_DEFAULT_VISIBLE_TOOL_IDS = COWART_TOOL_IDS.slice(0, 11)
 const ANNOTATION_EDIT_TOOL_LABEL = '按标注修改'
 const ANNOTATION_HTML_TOOL_LABEL = '按标注生成 Html'
 const COWART_WIDGET_ALREADY_OPEN_PROMPT_LINE =
@@ -5704,11 +5740,6 @@ function CowartAnnotationToolbarItem() {
         unlockGlobalToolLock(editor)
         editor.setCurrentTool(ANNOTATION_TOOL_ID)
       }}
-      onTouchStart={(event) => {
-        event.preventDefault()
-        unlockGlobalToolLock(editor)
-        editor.setCurrentTool(ANNOTATION_TOOL_ID)
-      }}
       title={ANNOTATION_TOOL_LABEL}
       type="button"
     >
@@ -5720,49 +5751,55 @@ function CowartAnnotationToolbarItem() {
   )
 }
 
-function CowartToolbarDivider() {
-  return <div aria-orientation="vertical" className="cowart-toolbar-divider" role="separator" />
+function CowartToolbar() {
+  return (
+    <CowartDraggableToolbar
+      defaultVisibleIds={COWART_DEFAULT_VISIBLE_TOOL_IDS}
+      renderTool={renderCowartToolbarTool}
+      toolIds={COWART_TOOL_IDS}
+    />
+  )
 }
 
-function CowartToolbar(props) {
-  return (
-    <DefaultToolbar {...props} maxItems={11}>
-      <CowartAnnotationToolbarItem />
-      <CowartToolbarDivider />
-      <SelectToolbarItem />
-      <HandToolbarItem />
-      <CowartToolbarItem toolId={AI_IMAGE_TOOL_ID} />
-      <CowartToolbarItem toolId={AI_DRAFT_TOOL_ID} />
-      <CowartToolbarItem toolId={AI_SLIDES_TOOL_ID} />
-      <CowartToolbarDivider />
-      <AssetToolbarItem />
-      <DrawToolbarItem />
-      <EraserToolbarItem />
-      <TextToolbarItem />
-      <ArrowToolbarItem />
-      <NoteToolbarItem />
-      <RectangleToolbarItem />
-      <EllipseToolbarItem />
-      <TriangleToolbarItem />
-      <DiamondToolbarItem />
-      <HexagonToolbarItem />
-      <OvalToolbarItem />
-      <RhombusToolbarItem />
-      <StarToolbarItem />
-      <CloudToolbarItem />
-      <HeartToolbarItem />
-      <XBoxToolbarItem />
-      <CheckBoxToolbarItem />
-      <ArrowLeftToolbarItem />
-      <ArrowUpToolbarItem />
-      <ArrowDownToolbarItem />
-      <ArrowRightToolbarItem />
-      <LineToolbarItem />
-      <HighlightToolbarItem />
-      <LaserToolbarItem />
-      <FrameToolbarItem />
-    </DefaultToolbar>
-  )
+/** 把稳定的工具 ID 映射到 tldraw/Cowart 现有工具项，布局 module 不需要知道具体组件。 */
+function renderCowartToolbarTool(toolId) {
+  if (toolId === ANNOTATION_TOOL_ID) return <CowartAnnotationToolbarItem />
+  if ([AI_IMAGE_TOOL_ID, AI_DRAFT_TOOL_ID, AI_SLIDES_TOOL_ID].includes(toolId)) {
+    return <CowartToolbarItem toolId={toolId} />
+  }
+
+  const ToolComponent = {
+    select: SelectToolbarItem,
+    hand: HandToolbarItem,
+    asset: AssetToolbarItem,
+    draw: DrawToolbarItem,
+    eraser: EraserToolbarItem,
+    text: TextToolbarItem,
+    arrow: ArrowToolbarItem,
+    note: NoteToolbarItem,
+    rectangle: RectangleToolbarItem,
+    ellipse: EllipseToolbarItem,
+    triangle: TriangleToolbarItem,
+    diamond: DiamondToolbarItem,
+    hexagon: HexagonToolbarItem,
+    oval: OvalToolbarItem,
+    rhombus: RhombusToolbarItem,
+    star: StarToolbarItem,
+    cloud: CloudToolbarItem,
+    heart: HeartToolbarItem,
+    'x-box': XBoxToolbarItem,
+    'check-box': CheckBoxToolbarItem,
+    'arrow-left': ArrowLeftToolbarItem,
+    'arrow-up': ArrowUpToolbarItem,
+    'arrow-down': ArrowDownToolbarItem,
+    'arrow-right': ArrowRightToolbarItem,
+    line: LineToolbarItem,
+    highlight: HighlightToolbarItem,
+    laser: LaserToolbarItem,
+    frame: FrameToolbarItem
+  }[toolId]
+
+  return ToolComponent ? <ToolComponent /> : null
 }
 
 function getCowartSelection(editor) {
@@ -5985,9 +6022,23 @@ export default function App() {
         }
       }, 0)
     }
+    function handleCowartAlignmentEvent(event) {
+      // tldraw 先完成本次平移，再由 Cowart 按图片优先级补上吸附偏移和参考线。
+      if (event.name === 'pointer_move' && editor.isIn('select.translating')) {
+        syncCowartImageAlignment(editor)
+        return
+      }
+
+      // 松开、取消、切换工具或进入文字/标注编辑时，绝不保留上一帧参考线。
+      if (!editor.isIn('select.translating') || event.name === 'pointer_up') {
+        clearCowartImageAlignment(editor)
+      }
+    }
+
     function handleSlidesPointerUp(event) {
       if (event.name === 'pointer_up') scheduleSlidesLayout()
     }
+    editor.on('event', handleCowartAlignmentEvent)
     editor.on('event', handleSlidesPointerUp)
     const disposeSlidesBeforeCreateHandler = editor.sideEffects.registerBeforeCreateHandler(
       'shape',
@@ -6205,6 +6256,7 @@ export default function App() {
       containerDocument.removeEventListener('copy', handleCowartCopy, { capture: true })
       disposeSlidesBeforeCreateHandler()
       disposeSlidesOperationHandler()
+      editor.off('event', handleCowartAlignmentEvent)
       syncViewState()
       saveCanvas()
     }

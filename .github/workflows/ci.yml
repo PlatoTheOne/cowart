@@ -30,3 +30,20 @@ jobs:
 
       - name: Validate plugin and run quality checks
         run: npm run quality
+
+      - name: Rebuild drifted release artifacts for diagnosis
+        if: failure()
+        run: npm run build:artifacts
+
+      - name: Upload drifted release artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release-artifacts
+          path: mcp/generated/
+
+      - name: Install Chromium for Cowart UI tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Cowart browser interaction tests
+        run: npm run test:e2e

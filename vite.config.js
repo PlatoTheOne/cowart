@@ -71,6 +71,28 @@ function broadcastCanvasChanged(result) {
   }
 }
 
+/**
+ * Windows 会把 SVG 的 CRLF 作为字面量写进 ?raw 模块；在 Vite 读取 seam 统一换行，
+ * 让自包含 Widget 在 Windows 与 Linux 上生成完全相同的字节。
+ */
+function normalizedRawTextPlugin() {
+  return {
+    name: 'cowart-normalized-raw-text',
+    enforce: 'pre',
+    async load(id) {
+      const queryIndex = id.indexOf('?')
+      if (queryIndex === -1) return null
+
+      const filePath = id.slice(0, queryIndex)
+      const query = new URLSearchParams(id.slice(queryIndex + 1))
+      if (!query.has('raw')) return null
+
+      const source = await readFile(filePath, 'utf8')
+      return `export default ${JSON.stringify(source.replace(/\r\n?/gu, '\n'))}`
+    }
+  }
+}
+
 function readRequestBody(req) {
   return new Promise((resolveBody, rejectBody) => {
     let body = ''
@@ -765,7 +787,7 @@ function canvasStoragePlugin() {
 }
 
 export default defineConfig({
-  plugins: [react(), canvasStoragePlugin()],
+  plugins: [normalizedRawTextPlugin(), react(), canvasStoragePlugin()],
   define: {
     __COWART_WIDGET_BUILD__: JSON.stringify(process.env.COWART_WIDGET_BUILD === '1'),
     __COWART_APP_VERSION__: JSON.stringify(cowartAppVersion),

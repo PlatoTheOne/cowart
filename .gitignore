@@ -3,4 +3,5 @@ dist/
 .DS_Store
 /canvas/
 /output/
+/test-results/
 .codex-plugin/analytics.local.json
