@@ -117,10 +117,6 @@ body {
   inset: 4px;
 }
 
-.tlui-main-toolbar__overflow-content .cowart-annotation-toolbar-button {
-  display: none;
-}
-
 .cowart-annotation-toolbar-label {
   position: relative;
   z-index: 1;
@@ -131,6 +127,97 @@ body {
   line-height: 1;
   white-space: nowrap;
   user-select: none;
+}
+
+.cowart-custom-toolbar__tools {
+  min-width: 0;
+}
+
+.cowart-custom-toolbar__visible {
+  display: flex;
+  max-width: min(68vw, 720px);
+  min-width: 48px;
+  min-height: 48px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  transition: outline-color 120ms ease, transform 120ms ease;
+}
+
+.cowart-custom-toolbar__visible::-webkit-scrollbar {
+  display: none;
+}
+
+.cowart-custom-toolbar__hidden {
+  min-width: 176px;
+  min-height: 52px;
+  transition: outline-color 120ms ease, transform 120ms ease;
+}
+
+.cowart-custom-toolbar__visible.is-drop-target,
+.cowart-custom-toolbar__hidden.is-drop-target {
+  outline: 2px solid #00e013;
+  outline-offset: 3px;
+  transform: translateY(-1px);
+}
+
+.cowart-custom-toolbar__more {
+  flex: 0 0 auto;
+}
+
+.cowart-draggable-tool {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+}
+
+.cowart-toolbar-drag-preview {
+  position: fixed;
+  z-index: 100000;
+  display: grid;
+  padding: 3px;
+  pointer-events: none;
+  color: #fff;
+  background: #121212;
+  border: 2px solid #00e013;
+  border-radius: 12px;
+  box-shadow: 0 14px 36px rgb(0 0 0 / 48%);
+  opacity: 0.94;
+  place-items: center;
+  transform: translate3d(0, -2px, 0) scale(1.04);
+}
+
+.cowart-toolbar-drag-preview [role="tooltip"] {
+  display: none !important;
+}
+
+.cowart-toolbar-drag-preview__toolbar {
+  background: transparent;
+  box-shadow: none;
+}
+
+.cowart-toolbar-drop-marker {
+  position: fixed;
+  z-index: 99999;
+  pointer-events: none;
+  background: #00e013;
+  border: 1px solid #000;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 2px rgb(0 224 19 / 24%);
+}
+
+@media (max-width: 700px) {
+  .cowart-custom-toolbar__visible {
+    max-width: 58vw;
+  }
+
+  .cowart-custom-toolbar__hidden {
+    max-width: min(88vw, 360px);
+  }
 }
 
 .cowart-annotation-tool-icon {

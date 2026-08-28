@@ -107,7 +107,8 @@ async function buildWidgetArtifact(outDir) {
   if (!html.includes("Cowart Canvas")) {
     throw new Error("The generated Cowart widget does not include the expected app shell.");
   }
-  return html;
+  // 原始 SVG 等文本会跟随检出平台使用 CRLF/LF；统一换行，保证发布产物可复现。
+  return html.replace(/\r\n?/gu, "\n");
 }
 
 async function buildMcpAppsGlobalModule() {

@@ -76,7 +76,9 @@ for (const skillName of ["cowart-image-edit", "cowart-image-gen", "cowart-open-c
   assert.ok((await lstat(skillPath)).isFile(), `${skillPath} must be a regular file`);
   assert.ok((await realpath(skillPath)).startsWith(`${resolvedRoot}${path.sep}`));
   const contents = await readFile(skillPath, "utf8");
-  const frontmatter = contents.match(/^---\n([\s\S]*?)\n---/u)?.[1];
+  // Windows checkout 会使用 CRLF；先统一换行，确保元数据检查跨平台一致。
+  const normalizedContents = contents.replace(/\r\n?/gu, "\n");
+  const frontmatter = normalizedContents.match(/^---\n([\s\S]*?)\n---/u)?.[1];
   assert.ok(frontmatter, `${skillName} must contain YAML frontmatter`);
   assert.equal(frontmatter.match(/^name:\s*(.+)$/mu)?.[1], skillName);
   const description = frontmatter.match(/^description:\s*(.+)$/mu)?.[1];
