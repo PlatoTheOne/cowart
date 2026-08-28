@@ -176,6 +176,8 @@ function parseExportMap(body) {
 
 async function inlineViteBuild(outDir) {
   let html = await readFile(path.join(outDir, "index.html"), "utf8");
+  // Vite 会保留入口 HTML 的平台换行与空行；先规范化外壳，再注入大型 CSS/JS 内容。
+  html = html.replace(/\r\n?/gu, "\n").replace(/\n[ \t]*\n+/gu, "\n");
   const inlineScripts = [];
   const consumedAssets = new Set();
 
