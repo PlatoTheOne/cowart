@@ -129,6 +129,44 @@ body {
   user-select: none;
 }
 
+.cowart-theme-zone {
+  position: relative;
+  z-index: var(--tl-layer-panels);
+  padding-top: 8px;
+  padding-right: 8px;
+  pointer-events: auto;
+}
+
+.cowart-theme-toggle {
+  position: relative;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  place-items: center;
+  color: var(--tl-color-text);
+  background: var(--tl-color-panel);
+  border: 1px solid var(--tl-color-muted-1);
+  border-radius: 12px;
+  box-shadow: var(--tl-shadow-2);
+  cursor: pointer;
+}
+
+.cowart-theme-toggle:hover {
+  background: var(--tl-color-muted-2);
+}
+
+.cowart-theme-toggle:focus-visible {
+  outline: 2px solid #00e013;
+  outline-offset: 2px;
+}
+
+.cowart-theme-toggle svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.9;
+}
+
 .cowart-custom-toolbar__tools {
   min-width: 0;
 }
