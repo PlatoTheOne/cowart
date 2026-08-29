@@ -172,29 +172,6 @@ function mcpHostBridgeScript(appVersion) {
     return new Error(String(error || "Cowart host bridge is unavailable."));
   }
 
-  function currentSize() {
-    const root = document.documentElement;
-    const body = document.body;
-    return {
-      width: Math.ceil(window.innerWidth || root.clientWidth || 0),
-      height: Math.ceil(Math.max(
-        root.scrollHeight || 0,
-        root.offsetHeight || 0,
-        body?.scrollHeight || 0,
-        body?.offsetHeight || 0,
-      )),
-    };
-  }
-
-  function sendCurrentSize() {
-    if (!mcpApp || typeof mcpApp.sendSizeChanged !== "function") return;
-    try {
-      mcpApp.sendSizeChanged(currentSize());
-    } catch (_error) {
-      // Hosts without size notifications can keep the default widget size.
-    }
-  }
-
   async function waitForReady(app) {
     if (app?.ready) {
       await withTimeout(app.ready, 4000, "Cowart host bridge did not become ready.");
@@ -264,7 +241,6 @@ function mcpHostBridgeScript(appVersion) {
       return app.requestDisplayMode(request);
     };
 
-    api.notifyResize = sendCurrentSize;
   }
 
   function payloadFromToolResult(result) {
@@ -280,7 +256,6 @@ function mcpHostBridgeScript(appVersion) {
       toolOutput: payload,
       toolResponseMetadata: metadata,
     });
-    sendCurrentSize();
   }
 
   window.addEventListener("message", (event) => {
@@ -294,7 +269,7 @@ function mcpHostBridgeScript(appVersion) {
     mcpApp = new apps.App(
       { name: "cowart", version: ${JSON.stringify(appVersion)} },
       { availableDisplayModes: ["inline", "fullscreen"] },
-      { autoResize: true },
+      { autoResize: false },
     );
     globalThis.__COWART_MCP_APP__ = mcpApp;
     installCowartApi(mcpApp);
@@ -314,7 +289,6 @@ function mcpHostBridgeScript(appVersion) {
         if (initialMode === "fullscreen" && typeof mcpApp.requestDisplayMode === "function") {
           mcpApp.requestDisplayMode({ mode: "fullscreen" }).catch(() => {});
         }
-        sendCurrentSize();
       })
       .catch((error) => {
         globalThis.__COWART_MCP_HOST_ERROR__ = error;

@@ -138,6 +138,49 @@ test('全部工具隐藏后仍能通过更多入口拖回底部', async ({ page 
   await expect(page.getByTestId('cowart-tool-slot-visible-select')).toBeVisible()
 })
 
+test('主题可在跟随系统、白天和黑夜之间切换并跨项目共享', async ({ page, context }) => {
+  const themeToggle = page.getByTestId('cowart-theme-toggle')
+  await expect(themeToggle).toHaveAttribute('data-theme-preference', 'system')
+
+  await themeToggle.click()
+  await expect(themeToggle).toHaveAttribute('data-theme-preference', 'light')
+  await expect.poll(() => page.evaluate(() => window.__cowartEditor.getColorMode())).toBe('light')
+
+  await themeToggle.click()
+  await expect(themeToggle).toHaveAttribute('data-theme-preference', 'dark')
+  await expect.poll(() => page.evaluate(() => window.__cowartEditor.getColorMode())).toBe('dark')
+
+  const secondPage = await context.newPage()
+  await secondPage.goto('/?project=theme-shared')
+  await expect(secondPage.getByTestId('cowart-theme-toggle')).toHaveAttribute('data-theme-preference', 'dark')
+  await expect.poll(() => secondPage.evaluate(() => window.__cowartEditor.getColorMode())).toBe('dark')
+  await secondPage.close()
+
+  await themeToggle.click()
+  await expect(themeToggle).toHaveAttribute('data-theme-preference', 'system')
+})
+
+test('宿主重新显示画布时主动校准 tldraw viewport', async ({ page }) => {
+  await page.evaluate(() => {
+    const editor = window.__cowartEditor
+    const original = editor.updateViewportScreenBounds.bind(editor)
+    window.__cowartViewportRecoveryCalls = 0
+    editor.updateViewportScreenBounds = (...args) => {
+      window.__cowartViewportRecoveryCalls += 1
+      return original(...args)
+    }
+    window.dispatchEvent(new CustomEvent('openai:set_globals', {
+      detail: { globals: { displayMode: 'fullscreen' } }
+    }))
+  })
+
+  await expect.poll(
+    () => page.evaluate(() => window.__cowartViewportRecoveryCalls),
+    { timeout: 400, intervals: [40] }
+  ).toBeGreaterThan(0)
+  await expect.poll(() => page.evaluate(() => window.__cowartEditor.getViewportScreenBounds().width)).toBeGreaterThan(0)
+})
+
 test('图片拖动优先吸附图片目标，并在松开后清除参考线', async ({ page }) => {
   const dragPoints = await page.evaluate(() => {
     const editor = window.__cowartEditor

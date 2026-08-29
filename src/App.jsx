@@ -60,7 +60,7 @@ import {
 import { getAssetUrlsByImport } from '@tldraw/assets/imports.vite'
 import { AllSelection } from '@tiptap/pm/state'
 import html2canvas from 'html2canvas'
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Download, FileCode, Image as ImageIcon, Play, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Download, FileCode, Image as ImageIcon, Monitor, Moon, Play, Sun, X } from 'lucide-react'
 import 'tldraw/tldraw.css'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import aiHtmlToolIconRaw from './assets/ai-html.svg?raw'
@@ -93,6 +93,13 @@ import {
 } from './canvasSnapshot.js'
 import { clearCowartImageAlignment, syncCowartImageAlignment } from './cowartAlignment.js'
 import { CowartDraggableToolbar } from './CowartDraggableToolbar.jsx'
+import {
+  getCowartThemeLabel,
+  nextCowartThemePreference,
+  readCowartThemePreference,
+  resolveCowartColorScheme,
+  writeCowartThemePreference
+} from './cowartTheme.js'
 
 const SELECTION_STATE_ELEMENT_ID = 'cowart-selection-state'
 const PAGE_ASSETS_ROUTE = '/page-assets/'
@@ -3484,7 +3491,69 @@ const cowartComponents = {
   Toolbar: CowartToolbar,
   ImageToolbar: CowartSelectionToolbar,
   InFrontOfTheCanvas: CowartCanvasOverlay,
+  SharePanel: CowartThemeControl,
   StylePanel: CowartStylePanel
+}
+
+/**
+ * 在画布右上角提供全局共享的三档主题切换入口。
+ */
+function CowartThemeControl() {
+  const editor = useEditor()
+  const [preference, setPreference] = useState(() => readCowartThemePreference())
+
+  useEffect(() => {
+    const colorMedia = window.matchMedia('(prefers-color-scheme: dark)')
+
+    /**
+     * 把 Cowart 偏好解析为当前宿主中的实际配色，并同步给 tldraw。
+     */
+    function applyTheme() {
+      const hostTheme = window.openai?.hostContext?.theme
+      const colorScheme = resolveCowartColorScheme(preference, {
+        hostTheme,
+        systemDark: colorMedia.matches
+      })
+      editor.user.updateUserPreferences({ colorScheme })
+      document.documentElement.dataset.cowartTheme = colorScheme
+    }
+
+    applyTheme()
+    window.addEventListener('openai:set_globals', applyTheme)
+    colorMedia.addEventListener?.('change', applyTheme)
+    return () => {
+      window.removeEventListener('openai:set_globals', applyTheme)
+      colorMedia.removeEventListener?.('change', applyTheme)
+    }
+  }, [editor, preference])
+
+  const label = getCowartThemeLabel(preference, navigator.language)
+  const ThemeIcon = preference === 'light' ? Sun : preference === 'dark' ? Moon : Monitor
+
+  /**
+   * 按固定顺序切换主题，并把偏好保存到所有项目共享的本地存储。
+   */
+  function handleThemeToggle() {
+    const nextPreference = nextCowartThemePreference(preference)
+    writeCowartThemePreference(nextPreference)
+    setPreference(nextPreference)
+  }
+
+  return (
+    <div className="tlui-share-zone cowart-theme-zone" draggable={false}>
+      <button
+        type="button"
+        className="cowart-theme-toggle"
+        data-testid="cowart-theme-toggle"
+        data-theme-preference={preference}
+        aria-label={label}
+        title={label}
+        onClick={handleThemeToggle}
+      >
+        <ThemeIcon aria-hidden="true" />
+      </button>
+    </div>
+  )
 }
 
 function CowartCanvasOverlay() {
@@ -5895,6 +5964,7 @@ export default function App() {
   const [viewState, setViewState] = useState()
   const [loadError, setLoadError] = useState(null)
   const [skippedRecords, setSkippedRecords] = useState([])
+  const [initialColorScheme] = useState(() => readCowartThemePreference())
 
   useEffect(() => {
     const controller = new AbortController()
@@ -5934,6 +6004,69 @@ export default function App() {
     editor.timers.requestAnimationFrame(() => {
       restoreCowartViewState(editor, viewState)
     })
+
+    const containerWindow = editor.getContainerWindow()
+    const containerDocument = editor.getContainerDocument()
+    const editorContainer = editor.getContainer()
+    let viewportRecoveryFrame = null
+    let viewportRecoverySettleFrame = null
+    let viewportRecoveryTimer = null
+    let lastHostLayoutSignature = null
+
+    /**
+     * 只在容器恢复为可见尺寸后校准 viewport，保持原有画布中心不跳动。
+     */
+    function recoverCowartViewport() {
+      const bounds = editorContainer.getBoundingClientRect()
+      if (bounds.width <= 1 || bounds.height <= 1) return
+      editor.updateViewportScreenBounds(editorContainer, true)
+    }
+
+    /**
+     * Codex 重新挂载右侧画布时跨两帧并在稳定后再次校准，避开宿主布局提交时序。
+     */
+    function scheduleCowartViewportRecovery() {
+      if (viewportRecoveryFrame !== null) containerWindow.cancelAnimationFrame(viewportRecoveryFrame)
+      if (viewportRecoverySettleFrame !== null) {
+        containerWindow.cancelAnimationFrame(viewportRecoverySettleFrame)
+      }
+      containerWindow.clearTimeout(viewportRecoveryTimer)
+      viewportRecoveryFrame = containerWindow.requestAnimationFrame(() => {
+        recoverCowartViewport()
+        viewportRecoverySettleFrame = containerWindow.requestAnimationFrame(recoverCowartViewport)
+      })
+      viewportRecoveryTimer = containerWindow.setTimeout(recoverCowartViewport, 240)
+    }
+
+    /**
+     * 页面重新可见时才触发校准，隐藏期间不制造额外尺寸反馈。
+     */
+    function handleCowartVisibilityChange() {
+      if (!containerDocument.hidden) scheduleCowartViewportRecovery()
+    }
+
+    /**
+     * 只在宿主布局身份或容器尺寸真正变化时恢复 viewport，跳过频繁的工具结果事件。
+     */
+    function handleCowartHostGlobals() {
+      const hostGlobals = containerWindow.openai
+      const dimensions = hostGlobals?.hostContext?.containerDimensions
+      const layoutSignature = JSON.stringify([
+        hostGlobals?.widgetInstanceId ?? null,
+        hostGlobals?.displayMode ?? null,
+        dimensions?.width ?? dimensions?.maxWidth ?? null,
+        dimensions?.height ?? dimensions?.maxHeight ?? null
+      ])
+      if (layoutSignature === lastHostLayoutSignature) return
+      lastHostLayoutSignature = layoutSignature
+      scheduleCowartViewportRecovery()
+    }
+
+    scheduleCowartViewportRecovery()
+    containerWindow.addEventListener('openai:set_globals', handleCowartHostGlobals)
+    containerWindow.addEventListener('pageshow', scheduleCowartViewportRecovery)
+    containerWindow.addEventListener('focus', scheduleCowartViewportRecovery)
+    containerDocument.addEventListener('visibilitychange', handleCowartVisibilityChange)
 
     async function syncSelectionState() {
       const selectionSnapshot = getCowartSelectionSnapshot(editor)
@@ -6050,7 +6183,6 @@ export default function App() {
     })
     editor.timers.setTimeout(scheduleSlidesLayout, 100)
 
-    const containerDocument = editor.getContainerDocument()
     function handleCowartCopy(event) {
       copySelectedCowartContent(editor, event)
     }
@@ -6237,6 +6369,13 @@ export default function App() {
     )
 
     return () => {
+      containerWindow.cancelAnimationFrame(viewportRecoveryFrame)
+      containerWindow.cancelAnimationFrame(viewportRecoverySettleFrame)
+      containerWindow.clearTimeout(viewportRecoveryTimer)
+      containerWindow.removeEventListener('openai:set_globals', handleCowartHostGlobals)
+      containerWindow.removeEventListener('pageshow', scheduleCowartViewportRecovery)
+      containerWindow.removeEventListener('focus', scheduleCowartViewportRecovery)
+      containerDocument.removeEventListener('visibilitychange', handleCowartVisibilityChange)
       window.clearTimeout(saveTimer)
       window.clearInterval(selectionStateTimer)
       window.clearInterval(viewStateTimer)
@@ -6285,7 +6424,7 @@ export default function App() {
         snapshot={snapshot ?? undefined}
         assetUrls={cowartAssetUrls}
         assets={cowartTldrawAssetStore}
-        inferDarkMode
+        colorScheme={initialColorScheme}
         onMount={handleMount}
         options={cowartTldrawOptions}
         overrides={cowartUiOverrides}
