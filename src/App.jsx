@@ -10,7 +10,6 @@ import {
   CloudToolbarItem,
   DefaultImageToolbar,
   DefaultImageToolbarContent,
-  DefaultColorStyle,
   DefaultStylePanel,
   DefaultStylePanelContent,
   DiamondToolbarItem,
@@ -152,6 +151,7 @@ const ANNOTATION_BEND_RATIO = 0.12
 const ANNOTATION_MIN_BEND = 16
 const ANNOTATION_MAX_BEND = 48
 const ANNOTATION_LABEL_POSITION = 0
+const ANNOTATION_TEXT_OFFSET_SCREEN_PX = 20
 const ANNOTATION_SELECT_TEXT_MAX_ATTEMPTS = 8
 const ANNOTATION_SELECT_TEXT_SETTLE_ATTEMPTS = 4
 const COWART_TOOL_IDS = [
@@ -1020,6 +1020,19 @@ function startEditingAnnotationArrowLabel(editor, arrowId) {
   selectAnnotationTextWhenReady(editor, arrowId)
 }
 
+/**
+ * 选中独立标注文字并立即进入富文本编辑，编辑期间仍把当前工具显示为“标注”。
+ */
+function startEditingAnnotationText(editor, textId) {
+  const shape = editor.getShape(textId)
+  if (!shape || !editor.canEditShape(shape)) return
+
+  editor.select(textId)
+  startEditingShapeWithRichText(editor, textId, { selectAll: true })
+  editor.getCurrentTool().setCurrentToolIdMask(ANNOTATION_TOOL_ID)
+  selectAnnotationTextWhenReady(editor, textId)
+}
+
 function pinAnnotationArrowLabelPosition(editor, arrowId, attempt = 0) {
   editor.timers.setTimeout(() => {
     const shape = editor.getShape(arrowId)
@@ -1133,9 +1146,45 @@ function getDefaultAnnotationArrowBend(dx, dy, scale) {
   return bend
 }
 
-function getAnnotationColor(editor) {
-  const color = editor.getStyleForNextShape(DefaultColorStyle)
-  return color === DefaultColorStyle.defaultValue ? ANNOTATION_DEFAULT_COLOR : color
+/**
+ * 计算箭头尖外侧的文字锚点；使用屏幕像素换算，缩放画布后视觉间距仍保持一致。
+ */
+function getAnnotationTextAnchor(origin, point, zoom) {
+  const dx = point.x - origin.x
+  const dy = point.y - origin.y
+  const length = Math.hypot(dx, dy)
+  const offset = ANNOTATION_TEXT_OFFSET_SCREEN_PX / Math.max(zoom, 0.01)
+  const unitX = length > 0 ? dx / length : 1
+  const unitY = length > 0 ? dy / length : 0
+  return {
+    point: {
+      x: point.x + unitX * offset,
+      y: point.y + unitY * offset
+    },
+    textAlign: Math.abs(unitX) < 0.15 ? 'middle' : unitX < 0 ? 'end' : 'start'
+  }
+}
+
+/**
+ * 把自动宽度文字的对齐锚点固定在箭头尖外侧，输入变长时继续向拖拽方向展开。
+ */
+function positionAnnotationTextAtAnchor(editor, textId, anchor) {
+  const shape = editor.getShape(textId)
+  const bounds = shape ? editor.getShapePageBounds(shape) : null
+  if (!shape || !bounds) return
+
+  const horizontalOffset =
+    shape.props.textAlign === 'end'
+      ? -bounds.w
+      : shape.props.textAlign === 'middle'
+        ? -bounds.w / 2
+        : 0
+  editor.updateShape({
+    id: textId,
+    type: 'text',
+    x: anchor.x + horizontalOffset,
+    y: anchor.y - bounds.h / 2
+  })
 }
 
 function expandBox(bounds, padding) {
@@ -1212,6 +1261,22 @@ function collectAnnotationTargetShapeIds(editor, targetShapeId, isTargetShape, i
         expandBox(arrowBounds, ANNOTATION_EDIT_RELATED_TEXT_MARGIN).collides(bounds)
       )
     ) {
+      relatedTextIds.push(shape.id)
+    }
+  }
+
+  // 新版标注优先通过双向 metadata 关联，避免文字稍远时被几何范围漏掉。
+  for (const arrowId of relatedArrowIds) {
+    const linkedTextId = editor.getShape(arrowId)?.meta?.cowartAnnotationTextId
+    if (typeof linkedTextId !== 'string') continue
+    if (editor.getShape(linkedTextId)?.meta?.cowartAnnotationText === true) {
+      relatedTextIds.push(linkedTextId)
+    }
+  }
+
+  for (const shape of editor.getCurrentPageShapesSorted()) {
+    if (shape?.meta?.cowartAnnotationText !== true) continue
+    if (relatedArrowIds.includes(shape.meta?.cowartAnnotationArrowId)) {
       relatedTextIds.push(shape.id)
     }
   }
@@ -2958,16 +3023,18 @@ class CowartAnnotationPointing extends StateNode {
   static id = 'pointing'
 
   arrowId = null
+  textId = null
   markId = ''
   origin = null
 
   onEnter() {
     const origin = this.editor.inputs.getOriginPagePoint()
     const scale = this.editor.getResizeScaleFactor()
-    const color = getAnnotationColor(this.editor)
     const arrowId = createShapeId()
+    const textId = createShapeId()
 
     this.arrowId = arrowId
+    this.textId = textId
     this.origin = { x: origin.x, y: origin.y }
     this.markId = this.editor.markHistoryStoppingPoint(`creating_annotation:${arrowId}`)
 
@@ -2977,15 +3044,16 @@ class CowartAnnotationPointing extends StateNode {
       x: origin.x,
       y: origin.y,
       meta: {
-        cowartAnnotationArrow: true
+        cowartAnnotationArrow: true,
+        cowartAnnotationTextId: textId
       },
       props: {
         kind: 'arc',
         dash: 'draw',
         size: 'm',
         fill: 'none',
-        color,
-        labelColor: color,
+        color: ANNOTATION_DEFAULT_COLOR,
+        labelColor: ANNOTATION_DEFAULT_COLOR,
         bend: 0,
         start: { x: 0, y: 0 },
         end: { x: 1, y: 0 },
@@ -3034,7 +3102,7 @@ class CowartAnnotationPointing extends StateNode {
   }
 
   complete() {
-    if (!this.arrowId || !this.origin) {
+    if (!this.arrowId || !this.textId || !this.origin) {
       this.editor.setCurrentTool(ANNOTATION_TOOL_ID)
       return
     }
@@ -3062,8 +3130,35 @@ class CowartAnnotationPointing extends StateNode {
       }
     ])
 
+    const textAnchor = getAnnotationTextAnchor(
+      this.origin,
+      point,
+      this.editor.getZoomLevel()
+    )
+    this.editor.createShape({
+      id: this.textId,
+      type: 'text',
+      x: textAnchor.point.x,
+      y: textAnchor.point.y,
+      meta: {
+        cowartAnnotationArrowId: this.arrowId,
+        cowartAnnotationText: true
+      },
+      props: {
+        autoSize: true,
+        color: ANNOTATION_DEFAULT_COLOR,
+        font: 'draw',
+        richText: toRichText(''),
+        scale: this.editor.getResizeScaleFactor(),
+        size: 'm',
+        textAlign: textAnchor.textAlign,
+        w: 8
+      }
+    })
+    positionAnnotationTextAtAnchor(this.editor, this.textId, textAnchor.point)
+
     trackAnnotationCreated()
-    startEditingAnnotationArrowLabel(this.editor, this.arrowId)
+    startEditingAnnotationText(this.editor, this.textId)
   }
 
   cancel() {
@@ -5797,6 +5892,14 @@ function CowartAnnotationToolbarItem() {
     [editor]
   )
 
+  /**
+   * 外层长按排序会捕获 pointer；在捕获发生前的 pointerdown 阶段激活标注工具。
+   */
+  function selectAnnotationTool() {
+    unlockGlobalToolLock(editor)
+    editor.setCurrentTool(ANNOTATION_TOOL_ID)
+  }
+
   return (
     <button
       aria-label={ANNOTATION_TOOL_LABEL}
@@ -5805,9 +5908,11 @@ function CowartAnnotationToolbarItem() {
       data-testid={`tools.${ANNOTATION_TOOL_ID}`}
       data-value={ANNOTATION_TOOL_ID}
       draggable={false}
-      onClick={() => {
-        unlockGlobalToolLock(editor)
-        editor.setCurrentTool(ANNOTATION_TOOL_ID)
+      onClick={(event) => {
+        if (event.detail === 0) selectAnnotationTool()
+      }}
+      onPointerDown={(event) => {
+        if (event.pointerType !== 'mouse' || event.button === 0) selectAnnotationTool()
       }}
       title={ANNOTATION_TOOL_LABEL}
       type="button"
@@ -6311,7 +6416,10 @@ export default function App() {
           if (!previous.editingShapeId || next.editingShapeId) continue
 
           const shape = editor.getShape(previous.editingShapeId)
-          if (shape?.meta?.cowartAnnotationArrow !== true) continue
+          if (
+            shape?.meta?.cowartAnnotationArrow !== true &&
+            shape?.meta?.cowartAnnotationText !== true
+          ) continue
 
           editor.timers.requestAnimationFrame(() => {
             if (editor.getEditingShapeId()) return

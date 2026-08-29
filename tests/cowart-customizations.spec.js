@@ -181,6 +181,118 @@ test('宿主重新显示画布时主动校准 tldraw viewport', async ({ page })
   await expect.poll(() => page.evaluate(() => window.__cowartEditor.getViewportScreenBounds().width)).toBeGreaterThan(0)
 })
 
+test('真实鼠标短按标注按钮会进入标注工具', async ({ page }) => {
+  const annotationSlot = page.getByTestId('cowart-tool-slot-visible-cowart-annotation')
+  const box = await annotationSlot.boundingBox()
+  expect(box).not.toBeNull()
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.up()
+
+  await expect.poll(() => page.evaluate(() => window.__cowartEditor.getCurrentToolId())).toBe('cowart-annotation')
+  await expect(annotationSlot.getByRole('button')).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('标注从目标点指向松开点，并在箭头尖外侧编辑关联的红色文字', async ({ page }) => {
+  const drag = await page.evaluate(() => {
+    const editor = window.__cowartEditor
+    editor.deleteShapes([...editor.getCurrentPageShapeIds()])
+    editor.user.updateUserPreferences({ colorScheme: 'dark' })
+    editor.setCurrentTool('cowart-annotation')
+    const start = editor.pageToScreen({ x: 220, y: 260 })
+    const end = editor.pageToScreen({ x: 520, y: 400 })
+    return { start, end }
+  })
+
+  await page.mouse.move(drag.start.x, drag.start.y)
+  await page.mouse.down()
+  await page.mouse.move(drag.end.x, drag.end.y, { steps: 8 })
+  await page.mouse.up()
+
+  await expect.poll(() => page.evaluate(() => {
+    const editor = window.__cowartEditor
+    const shapes = editor.getCurrentPageShapes()
+    const arrow = shapes.find((shape) => shape.meta?.cowartAnnotationArrow === true)
+    const text = shapes.find((shape) => shape.meta?.cowartAnnotationText === true)
+    if (!arrow || !text) return null
+
+    const arrowEnd = {
+      x: arrow.x + arrow.props.end.x,
+      y: arrow.y + arrow.props.end.y
+    }
+    const dragVector = {
+      x: arrow.props.end.x - arrow.props.start.x,
+      y: arrow.props.end.y - arrow.props.start.y
+    }
+    const textVector = {
+      x: text.x - arrowEnd.x,
+      y: text.y - arrowEnd.y
+    }
+    const screenOffset = Math.hypot(textVector.x, textVector.y) * editor.getZoomLevel()
+    const outwardDot = dragVector.x * textVector.x + dragVector.y * textVector.y
+
+    return {
+      arrowColor: arrow.props.color,
+      arrowEnd: arrow.props.end,
+      arrowId: arrow.id,
+      arrowStart: arrow.props.start,
+      arrowTextId: arrow.meta?.cowartAnnotationTextId,
+      arrowheadEnd: arrow.props.arrowheadEnd,
+      editingShapeId: editor.getEditingShapeId(),
+      outwardDot,
+      screenOffset,
+      textArrowId: text.meta?.cowartAnnotationArrowId,
+      textColor: text.props.color,
+      textId: text.id
+    }
+  })).not.toBeNull()
+
+  const annotation = await page.evaluate(() => {
+    const editor = window.__cowartEditor
+    const shapes = editor.getCurrentPageShapes()
+    const arrow = shapes.find((shape) => shape.meta?.cowartAnnotationArrow === true)
+    const text = shapes.find((shape) => shape.meta?.cowartAnnotationText === true)
+    const arrowEnd = { x: arrow.x + arrow.props.end.x, y: arrow.y + arrow.props.end.y }
+    const textVector = { x: text.x - arrowEnd.x, y: text.y - arrowEnd.y }
+    return {
+      arrowColor: arrow.props.color,
+      arrowEnd: arrow.props.end,
+      arrowId: arrow.id,
+      arrowStart: arrow.props.start,
+      arrowTextId: arrow.meta?.cowartAnnotationTextId,
+      arrowheadEnd: arrow.props.arrowheadEnd,
+      editingShapeId: editor.getEditingShapeId(),
+      outwardDot: arrow.props.end.x * textVector.x + arrow.props.end.y * textVector.y,
+      screenOffset: Math.hypot(textVector.x, textVector.y) * editor.getZoomLevel(),
+      textArrowId: text.meta?.cowartAnnotationArrowId,
+      textColor: text.props.color,
+      textId: text.id
+    }
+  })
+
+  expect(annotation.arrowStart).toEqual({ x: 0, y: 0 })
+  expect(annotation.arrowEnd.x).toBeGreaterThan(0)
+  expect(annotation.arrowEnd.y).toBeGreaterThan(0)
+  expect(annotation.arrowheadEnd).toBe('arrow')
+  expect(annotation.outwardDot).toBeGreaterThan(0)
+  expect(annotation.screenOffset).toBeGreaterThanOrEqual(16)
+  expect(annotation.screenOffset).toBeLessThanOrEqual(28)
+  expect(annotation.arrowColor).toBe('red')
+  expect(annotation.textColor).toBe('red')
+  expect(annotation.arrowTextId).toBe(annotation.textId)
+  expect(annotation.textArrowId).toBe(annotation.arrowId)
+  expect(annotation.editingShapeId).toBe(annotation.textId)
+
+  await page.keyboard.type('我的')
+  await expect.poll(() => page.evaluate((textId) => {
+    const text = window.__cowartEditor.getShape(textId)
+    return JSON.stringify(text?.props?.richText ?? {}).includes('我的')
+  }, annotation.textId)).toBe(true)
+  await page.keyboard.press('Escape')
+  await expect.poll(() => page.evaluate(() => window.__cowartEditor.getCurrentToolId())).toBe('cowart-annotation')
+})
+
 test('图片拖动优先吸附图片目标，并在松开后清除参考线', async ({ page }) => {
   const dragPoints = await page.evaluate(() => {
     const editor = window.__cowartEditor
