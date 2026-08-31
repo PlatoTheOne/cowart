@@ -83,6 +83,14 @@ for (const skillName of ["cowart-image-edit", "cowart-image-gen", "cowart-open-c
   assert.equal(frontmatter.match(/^name:\s*(.+)$/mu)?.[1], skillName);
   const description = frontmatter.match(/^description:\s*(.+)$/mu)?.[1];
   assert.ok(description && [...description].length <= 1024);
+
+  if (skillName === "cowart-open-canvas") {
+    assert.match(
+      normalizedContents,
+      /prior successful [`']?render_cowart_canvas_widget[`']?.*do not call/isu,
+      "cowart-open-canvas must explicitly block duplicate widget renders in one task",
+    );
+  }
 }
 
 console.log(`Cowart Agent Plugin metadata OK (${manifest.version})`);

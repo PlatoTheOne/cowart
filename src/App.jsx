@@ -10,6 +10,7 @@ import {
   CloudToolbarItem,
   DefaultImageToolbar,
   DefaultImageToolbarContent,
+  DefaultColorStyle,
   DefaultStylePanel,
   DefaultStylePanelContent,
   DiamondToolbarItem,
@@ -80,6 +81,7 @@ import {
   readCowartPageAsset,
   refreshCowartCanvasSnapshot,
   saveCowartCanvasSnapshot,
+  saveCowartPreferences,
   saveCowartReferenceImage,
   saveCowartSelectionState,
   saveCowartViewState,
@@ -92,6 +94,7 @@ import {
 } from './canvasSnapshot.js'
 import { clearCowartImageAlignment, syncCowartImageAlignment } from './cowartAlignment.js'
 import { CowartDraggableToolbar } from './CowartDraggableToolbar.jsx'
+import { CowartPreferencesProvider, useCowartPreferences } from './CowartPreferencesContext.jsx'
 import {
   getCowartThemeLabel,
   nextCowartThemePreference,
@@ -3595,7 +3598,13 @@ const cowartComponents = {
  */
 function CowartThemeControl() {
   const editor = useEditor()
-  const [preference, setPreference] = useState(() => readCowartThemePreference())
+  const { preferences, updatePreferences } = useCowartPreferences()
+  const preference = preferences.themePreference ?? readCowartThemePreference()
+
+  useEffect(() => {
+    writeCowartThemePreference(preference)
+    if (!preferences.themePreference) void updatePreferences({ themePreference: preference })
+  }, [preference, preferences.themePreference, updatePreferences])
 
   useEffect(() => {
     const colorMedia = window.matchMedia('(prefers-color-scheme: dark)')
@@ -3631,7 +3640,7 @@ function CowartThemeControl() {
   function handleThemeToggle() {
     const nextPreference = nextCowartThemePreference(preference)
     writeCowartThemePreference(nextPreference)
-    setPreference(nextPreference)
+    void updatePreferences({ themePreference: nextPreference })
   }
 
   return (
@@ -6069,7 +6078,21 @@ export default function App() {
   const [viewState, setViewState] = useState()
   const [loadError, setLoadError] = useState(null)
   const [skippedRecords, setSkippedRecords] = useState([])
-  const [initialColorScheme] = useState(() => readCowartThemePreference())
+  const [preferences, setPreferences] = useState()
+
+  /** 先乐观更新界面，再用 MCP 分字段保存到机器级偏好文件。 */
+  const updatePreferences = useCallback((patch) => {
+    setPreferences((current) => ({
+      version: 1,
+      toolbarLayout: null,
+      themePreference: null,
+      ...current,
+      ...patch
+    }))
+    void saveCowartPreferences(patch).catch((error) => {
+      console.warn(`Cowart preferences could not be saved: ${error instanceof Error ? error.message : String(error)}`)
+    })
+  }, [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -6081,11 +6104,17 @@ export default function App() {
         setSnapshot(sanitized.snapshot)
         setSkippedRecords(sanitized.skippedRecords)
         setViewState(canvasState.viewState ?? null)
+        setPreferences(canvasState.preferences ?? {
+          version: 1,
+          toolbarLayout: null,
+          themePreference: null
+        })
       } catch (error) {
         if (error.name === 'AbortError') return
         setLoadError(error)
         setSnapshot(null)
         setViewState(null)
+        setPreferences({ version: 1, toolbarLayout: null, themePreference: null })
       }
     }
 
@@ -6099,6 +6128,7 @@ export default function App() {
     window.__cowartEditor = editor
     window.__cowartSelection = () => getCowartSelection(editor)
     window.__cowartViewState = () => getCowartViewState(editor)
+    editor.setStyleForNextShapes(DefaultColorStyle, 'red')
     let lastSyncedSelectionState = ''
     let isSelectionStateSaving = false
     let hasPendingSelectionState = false
@@ -6509,7 +6539,7 @@ export default function App() {
     }
   }, [viewState])
 
-  if (snapshot === undefined || viewState === undefined) {
+  if (snapshot === undefined || viewState === undefined || preferences === undefined) {
     return (
       <main className="cowart-status" aria-live="polite">
         Loading canvas...
@@ -6525,21 +6555,25 @@ export default function App() {
     )
   }
 
+  const initialColorScheme = preferences.themePreference ?? readCowartThemePreference()
+
   return (
     <main className="cowart-canvas" aria-label="Cowart infinite canvas">
       <SkippedRecordsNotice records={skippedRecords} />
-      <Tldraw
-        snapshot={snapshot ?? undefined}
-        assetUrls={cowartAssetUrls}
-        assets={cowartTldrawAssetStore}
-        colorScheme={initialColorScheme}
-        onMount={handleMount}
-        options={cowartTldrawOptions}
-        overrides={cowartUiOverrides}
-        components={cowartComponents}
-        shapeUtils={cowartShapeUtils}
-        tools={[CowartAnnotationTool]}
-      />
+      <CowartPreferencesProvider preferences={preferences} updatePreferences={updatePreferences}>
+        <Tldraw
+          snapshot={snapshot ?? undefined}
+          assetUrls={cowartAssetUrls}
+          assets={cowartTldrawAssetStore}
+          colorScheme={initialColorScheme}
+          onMount={handleMount}
+          options={cowartTldrawOptions}
+          overrides={cowartUiOverrides}
+          components={cowartComponents}
+          shapeUtils={cowartShapeUtils}
+          tools={[CowartAnnotationTool]}
+        />
+      </CowartPreferencesProvider>
     </main>
   )
 }

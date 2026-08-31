@@ -37,6 +37,10 @@ import {
   COWART_GA4_EVENT_NAMES,
   sendCowartGa4Event,
 } from "./lib/ga4-analytics.mjs";
+import {
+  readCowartPreferences,
+  updateCowartPreferences,
+} from "./lib/cowart-preferences.mjs";
 
 const TOOL_RENDER_WIDGET = "render_cowart_canvas_widget";
 const TOOL_GET_CANVAS_STATE = "get_cowart_canvas_state";
@@ -51,6 +55,7 @@ const TOOL_READ_PAGE_ASSET = "read_cowart_page_asset";
 const TOOL_DOWNLOAD_FILE = "download_cowart_file";
 const TOOL_COPY_IMAGE_TO_CLIPBOARD = "copy_cowart_image_to_clipboard";
 const TOOL_TRACK_ANALYTICS = "track_cowart_analytics_event";
+const TOOL_SAVE_PREFERENCES = "save_cowart_preferences";
 
 const execFileAsync = promisify(execFile);
 
@@ -120,7 +125,7 @@ const server = new McpServer(
   },
   {
     instructions:
-      "cowart_mcp is Cowart's core canvas MCP server. Use render_cowart_canvas_widget when the user asks to open, reopen, or explicitly refresh the native canvas. When a Cowart widget is already open, reuse it and use get_cowart_selection for persisted widget selection, save_cowart_reference_image for widget-provided reference images, read_cowart_page_asset for lazy widget asset loading, download_cowart_file to save widget-requested files into the user's Downloads folder, insert_cowart_image to place or replace bitmap assets, and insert_cowart_html_draft to save and embed HTML drafts without rendering another widget tab.",
+      "cowart_mcp is Cowart's core canvas MCP server. Before rendering, inspect the current task history: if a prior successful render_cowart_canvas_widget call exists, do not call it again unless the user explicitly says every Cowart tab is closed or explicitly requests an additional tab. Reuse an existing widget and use get_cowart_selection for persisted widget selection, save_cowart_reference_image for widget-provided reference images, read_cowart_page_asset for lazy widget asset loading, download_cowart_file to save widget-requested files into the user's Downloads folder, insert_cowart_image to place or replace bitmap assets, and insert_cowart_html_draft to save and embed HTML drafts without rendering another widget tab.",
   },
 );
 
@@ -1050,7 +1055,7 @@ function registerCowartWidget(mcpServer) {
     {
       title: "Render Cowart Canvas Widget",
       description:
-        "Open, reopen, or explicitly refresh the native Cowart canvas for the active Codex project. Pass projectDir for the user's workspace so canvas data is stored under <projectDir>/canvas. A successful call creates a widget surface, so do not use this tool as a routine prerequisite when a Cowart canvas is already open.",
+        "Open the native Cowart canvas for the active Codex project. A successful call always creates another widget surface. Before calling, inspect the current task history: if a prior successful render_cowart_canvas_widget call exists, do not call this tool again unless the user explicitly says every Cowart tab is closed or explicitly asks for an additional tab. Pass projectDir for the user's workspace so canvas data is stored under <projectDir>/canvas.",
       inputSchema: {
         ...projectArgsSchema,
         title: z.string().trim().optional(),
@@ -1201,7 +1206,11 @@ function registerCowartStateTools(mcpServer) {
       },
     },
     async (input = {}) => {
-      const state = await readCowartCanvasState(input, { hydrateAssets: input.hydrateAssets === true });
+      const [state, preferences] = await Promise.all([
+        readCowartCanvasState(input, { hydrateAssets: input.hydrateAssets === true }),
+        readCowartPreferences(),
+      ]);
+      const stateWithPreferences = { ...state, preferences };
       return {
         content: [
           {
@@ -1209,7 +1218,45 @@ function registerCowartStateTools(mcpServer) {
             text: `Loaded Cowart canvas state from ${state.canvasDir} (${state.storage}).`,
           },
         ],
-        structuredContent: state,
+        structuredContent: stateWithPreferences,
+      };
+    },
+  );
+
+  registerAppTool(
+    mcpServer,
+    TOOL_SAVE_PREFERENCES,
+    {
+      title: "Save Cowart global preferences",
+      description:
+        "Persist project-independent Cowart toolbar and theme preferences for every Codex task on this machine.",
+      inputSchema: {
+        ...projectArgsSchema,
+        preferences: z.object({
+          toolbarLayout: z.object({
+            version: z.literal(1),
+            visible: z.array(z.string()),
+            hidden: z.array(z.string()),
+          }).optional(),
+          themePreference: z.enum(["system", "light", "dark"]).optional(),
+        }),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      _meta: {
+        ui: { visibility: ["app"] },
+        "openai/widgetAccessible": true,
+      },
+    },
+    async ({ preferences }) => {
+      const savedPreferences = await updateCowartPreferences(preferences);
+      return {
+        content: [],
+        structuredContent: { preferences: savedPreferences },
       };
     },
   );

@@ -11,7 +11,9 @@ const transportEnvironment = Object.fromEntries(
 );
 const serverRoot = path.resolve(optionValue("--server-root") || process.cwd());
 const maximumStartupMs = Number(optionValue("--max-startup-ms") || 0);
+const preferenceProbePath = path.join(tmpdir(), `cowart-preferences-probe-${process.pid}.json`);
 transportEnvironment.COWART_PLUGIN_ROOT = serverRoot;
+transportEnvironment.COWART_PREFERENCES_PATH = preferenceProbePath;
 const transport = new StdioClientTransport({
   command: "node",
   args: ["./scripts/start-mcp.mjs"],
@@ -54,6 +56,7 @@ try {
     "render_cowart_canvas_widget",
     "get_cowart_canvas_state",
     "save_cowart_canvas_state",
+    "save_cowart_preferences",
     "save_cowart_selection_state",
     "save_cowart_view_state",
     "save_cowart_reference_image",
@@ -82,6 +85,10 @@ try {
   const clipboardTool = tools.tools.find((tool) => tool.name === "copy_cowart_image_to_clipboard");
   if (JSON.stringify(clipboardTool?._meta?.ui?.visibility) !== JSON.stringify(["app"])) {
     throw new Error("Cowart clipboard tool should only be visible to the widget app.");
+  }
+  const preferencesTool = tools.tools.find((tool) => tool.name === "save_cowart_preferences");
+  if (JSON.stringify(preferencesTool?._meta?.ui?.visibility) !== JSON.stringify(["app"])) {
+    throw new Error("Cowart preferences tool should only be visible to the widget app.");
   }
 
   projectDir = await mkdtemp(path.join(tmpdir(), "cowart-widget-probe-"));
@@ -122,6 +129,36 @@ try {
   }
   if ((stateResult.structuredContent?.hydratedAssets || []).length !== 0) {
     throw new Error("Cowart canvas state should not hydrate image assets by default.");
+  }
+  if (
+    stateResult.structuredContent?.preferences?.version !== 1 ||
+    stateResult.structuredContent?.preferences?.toolbarLayout !== null ||
+    stateResult.structuredContent?.preferences?.themePreference !== null
+  ) {
+    throw new Error("A fresh Cowart install should expose empty migratable global preferences.");
+  }
+
+  const toolbarLayout = {
+    version: 1,
+    visible: ["cowart-annotation", "text"],
+    hidden: ["select", "hand"],
+  };
+  await client.callTool({
+    name: "save_cowart_preferences",
+    arguments: {
+      projectDir,
+      preferences: { toolbarLayout, themePreference: "dark" },
+    },
+  });
+  const preferencesStateResult = await client.callTool({
+    name: "get_cowart_canvas_state",
+    arguments: { projectDir },
+  });
+  if (
+    JSON.stringify(preferencesStateResult.structuredContent?.preferences) !==
+    JSON.stringify({ version: 1, toolbarLayout, themePreference: "dark" })
+  ) {
+    throw new Error("Cowart MCP global preferences did not survive a save/read roundtrip.");
   }
 
   const probePageAssetDir = path.join(projectDir, "canvas", "pages", "probe-page", "assets");
@@ -284,6 +321,7 @@ try {
   if (projectDir) {
     await rm(projectDir, { recursive: true, force: true }).catch(() => undefined);
   }
+  await unlink(preferenceProbePath).catch(() => undefined);
   await client.close();
 }
 

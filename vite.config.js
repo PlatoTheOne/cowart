@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { randomUUID } from 'node:crypto'
 import { createReadStream, readFileSync } from 'node:fs'
-import { copyFile, mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 
 const projectDir = resolve(process.env.COWART_PROJECT_DIR ?? process.cwd())
@@ -23,6 +23,7 @@ const pageAssetsRoute = '/page-assets/'
 const canvasEventClients = new Set()
 let canvasEventVersion = 0
 let canvasSnapshotSanitizerPromise = null
+const jsonWriteQueues = new Map()
 
 const mimeTypes = new Map([
   ['.apng', 'image/apng'],
@@ -526,10 +527,23 @@ async function loadCanvasSnapshot() {
 }
 
 async function writeJsonAtomic(filePath, payload) {
-  await mkdir(dirname(filePath), { recursive: true })
-  const tempFile = `${filePath}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`
-  await writeFile(tempFile, `${JSON.stringify(payload, null, 2)}\n`)
-  await rename(tempFile, filePath)
+  const previous = jsonWriteQueues.get(filePath) ?? Promise.resolve()
+  const current = previous.catch(() => undefined).then(async () => {
+    await mkdir(dirname(filePath), { recursive: true })
+    const tempFile = `${filePath}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`
+    try {
+      await writeFile(tempFile, `${JSON.stringify(payload, null, 2)}\n`)
+      await rename(tempFile, filePath)
+    } finally {
+      await rm(tempFile, { force: true }).catch(() => undefined)
+    }
+  })
+  jsonWriteQueues.set(filePath, current)
+  try {
+    await current
+  } finally {
+    if (jsonWriteQueues.get(filePath) === current) jsonWriteQueues.delete(filePath)
+  }
 }
 
 async function saveCanvasSnapshot(snapshot) {

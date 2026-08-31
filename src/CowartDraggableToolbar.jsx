@@ -20,6 +20,7 @@ import {
   useValue
 } from 'tldraw'
 import { useEffect, useRef, useState } from 'react'
+import { useCowartPreferences } from './CowartPreferencesContext.jsx'
 
 import {
   COWART_TOOLBAR_LAYOUT_STORAGE_KEY,
@@ -42,6 +43,7 @@ export function CowartDraggableToolbar({ toolIds, defaultVisibleIds, renderTool 
   const breakpoint = useBreakpoint()
   const isReadonlyMode = useReadonly()
   const { ActionsMenu, QuickActions } = useTldrawUiComponents()
+  const { preferences, updatePreferences } = useCowartPreferences()
   const activeToolId = useValue('cowart current tool id', () => editor.getCurrentToolId(), [editor])
   const toolbarRef = useRef(null)
   const visibleRegionRef = useRef(null)
@@ -50,36 +52,46 @@ export function CowartDraggableToolbar({ toolIds, defaultVisibleIds, renderTool 
   const suppressNextClickRef = useRef(false)
   const [isOpen, setIsOpen] = useState(false)
   const [dragUi, setDragUi] = useState(null)
-  const [layout, setLayout] = useState(() =>
-    loadCowartToolbarLayout(getCowartToolbarStorage(), { allToolIds: toolIds, defaultVisibleIds })
-  )
+  const [layout, setLayout] = useState(() => normalizeCowartToolbarLayout({
+    allToolIds: toolIds,
+    defaultVisibleIds,
+    storedLayout: preferences.toolbarLayout ?? loadCowartToolbarLayout(
+      getCowartToolbarStorage(),
+      { allToolIds: toolIds, defaultVisibleIds }
+    )
+  }))
 
   usePassThroughWheelEvents(toolbarRef)
 
   useEffect(() => {
-    setLayout((current) =>
-      normalizeCowartToolbarLayout({
-        allToolIds: toolIds,
-        defaultVisibleIds,
-        storedLayout: current
-      })
-    )
-  }, [defaultVisibleIds, toolIds])
+    const next = normalizeCowartToolbarLayout({
+      allToolIds: toolIds,
+      defaultVisibleIds,
+      storedLayout: preferences.toolbarLayout ?? layout
+    })
+    setLayout(next)
+    saveCowartToolbarLayout(getCowartToolbarStorage(), next)
+    if (!preferences.toolbarLayout) void updatePreferences({ toolbarLayout: next })
+  }, [defaultVisibleIds, preferences.toolbarLayout, toolIds, updatePreferences])
 
   useEffect(() => {
     function handleStorage(event) {
       if (event.key !== COWART_TOOLBAR_LAYOUT_STORAGE_KEY) return
       setLayout(
-        loadCowartToolbarLayout(getCowartToolbarStorage(), {
-          allToolIds: toolIds,
-          defaultVisibleIds
-        })
+        (() => {
+          const next = loadCowartToolbarLayout(getCowartToolbarStorage(), {
+            allToolIds: toolIds,
+            defaultVisibleIds
+          })
+          void updatePreferences({ toolbarLayout: next })
+          return next
+        })()
       )
     }
 
     globalThis.window?.addEventListener('storage', handleStorage)
     return () => globalThis.window?.removeEventListener('storage', handleStorage)
-  }, [defaultVisibleIds, toolIds])
+  }, [defaultVisibleIds, toolIds, updatePreferences])
 
   useEffect(() => {
     const doc = editor.getContainerDocument()
@@ -155,6 +167,7 @@ export function CowartDraggableToolbar({ toolIds, defaultVisibleIds, renderTool 
             index: drop.index
           })
           saveCowartToolbarLayout(getCowartToolbarStorage(), next)
+          void updatePreferences({ toolbarLayout: next })
           return next
         })
       }
