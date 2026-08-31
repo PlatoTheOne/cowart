@@ -9,7 +9,9 @@ The actual canvas-opening capability is the `cowart_mcp` MCP server and its `ren
 
 ## Workflow
 
-1. Ensure the `cowart_mcp` MCP server is loaded or discoverable and that its `render_cowart_canvas_widget` tool is available. The host may expose the complete tool name as `mcp__cowart_mcp__render_cowart_canvas_widget`. Call the tool once for the user's open, reopen, or explicit refresh request. Pass the user's active Codex workspace as `projectDir`; do not pass the Cowart plugin repository directory.
+1. Before every render attempt, inspect the current task history and completed tool markers. If any prior successful `render_cowart_canvas_widget` call exists in this task, do not call it again for an ordinary open, reopen, refresh, or bare `@Cowart` request. Tell the user the existing Cowart tab is already open. Override this guard only when the user explicitly says every Cowart tab is closed or explicitly asks for an additional tab.
+
+2. If no successful render exists, ensure the `cowart_mcp` MCP server is loaded or discoverable and that its `render_cowart_canvas_widget` tool is available. The host may expose the complete tool name as `mcp__cowart_mcp__render_cowart_canvas_widget`. Call the tool once. Pass the user's active Codex workspace as `projectDir`; do not pass the Cowart plugin repository directory.
 
 ```json
 {
@@ -19,14 +21,14 @@ The actual canvas-opening capability is the `cowart_mcp` MCP server and its `ren
 
 The tool returns `openai/outputTemplate: ui://widget/cowart/canvas.html`, which tells Codex to render the widget directly. Do not start `scripts/start-canvas.sh` or open a localhost URL for normal use.
 
-2. Confirm the widget opens for the user. The canvas data is stored in the active project:
+3. Confirm the widget opens for the user. The canvas data is stored in the active project:
 
 ```text
 canvas/pages/<page-id>/cowart-canvas.json
 canvas/pages/<page-id>/assets/
 ```
 
-3. If the MCP tool is not visible in the current turn, use tool discovery for Cowart widget/render capabilities and retry within the same task after an explicit Cowart canvas invocation. Do not claim that a new task is required merely because one turn did not expose the tool. Only suggest a new Codex task when the plugin was just installed or upgraded and the MCP schema is still unavailable after discovery and an explicit retry.
+4. If the MCP tool is not visible in the current turn, use tool discovery for Cowart widget/render capabilities and retry within the same task after an explicit Cowart canvas invocation. Do not claim that a new task is required merely because one turn did not expose the tool. Only suggest a new Codex task when the plugin was just installed or upgraded and the MCP schema is still unavailable after discovery and an explicit retry.
 
 ## Constraints
 

@@ -1,7 +1,7 @@
 {
   "name": "cowart",
-  "version": "0.1.30",
-  "description": "A native tldraw canvas for Codex, backed by cowart_mcp. Use render_cowart_canvas_widget to open, reopen, or explicitly refresh the canvas, and reuse an existing widget for Cowart workflows.",
+  "version": "0.1.31",
+  "description": "A native tldraw canvas for Codex, backed by cowart_mcp. Open one canvas widget per task and reuse it for Cowart workflows.",
   "author": {
     "name": "ZHONG XIN",
     "email": "zhongxin123456@gmail.com",
@@ -22,7 +22,7 @@
   "interface": {
     "displayName": "Cowart",
     "shortDescription": "Open a native tldraw canvas and reuse it across Cowart workflows.",
-    "longDescription": "Cowart brings a tldraw-powered native widget canvas into Codex for visual planning and creative iteration. The cowart_mcp server provides the canvas and project-backed state tools; render_cowart_canvas_widget opens, reopens, or explicitly refreshes the native canvas. Once the widget is open, image generation, annotation editing, HTML, Slides, and other Cowart workflows should reuse it and let MCP-backed storage synchronization update the canvas without rendering another widget tab.",
+    "longDescription": "Cowart brings a tldraw-powered native widget canvas into Codex for visual planning and creative iteration. The cowart_mcp server provides the canvas, project-backed state, and machine-wide UI preferences. Each task should open one native canvas widget, then reuse it for image generation, annotation editing, HTML, Slides, and other Cowart workflows without rendering duplicate tabs.",
     "developerName": "ZHONG XIN",
     "category": "Productivity",
     "websiteURL": "https://www.jiqiren.ai",

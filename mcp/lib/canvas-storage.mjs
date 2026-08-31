@@ -6,6 +6,7 @@ const PAGE_ID_PREFIX = "page:";
 const GLOBAL_ASSETS_ROUTE = "/assets/";
 const PAGE_ASSETS_ROUTE = "/page-assets/";
 const CANVAS_FILE_NAME = "cowart-canvas.json";
+const jsonWriteQueues = new Map();
 
 const mimeTypes = new Map([
   [".apng", "image/apng"],
@@ -478,10 +479,23 @@ async function loadStoredCanvasSnapshot(args = {}) {
 }
 
 async function writeJsonAtomic(filePath, payload) {
-  await mkdir(dirname(filePath), { recursive: true });
-  const tempFile = `${filePath}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
-  await writeFile(tempFile, `${JSON.stringify(payload, null, 2)}\n`);
-  await rename(tempFile, filePath);
+  const previous = jsonWriteQueues.get(filePath) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(async () => {
+    await mkdir(dirname(filePath), { recursive: true });
+    const tempFile = `${filePath}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(tempFile, `${JSON.stringify(payload, null, 2)}\n`);
+      await rename(tempFile, filePath);
+    } finally {
+      await rm(tempFile, { force: true }).catch(() => undefined);
+    }
+  });
+  jsonWriteQueues.set(filePath, current);
+  try {
+    await current;
+  } finally {
+    if (jsonWriteQueues.get(filePath) === current) jsonWriteQueues.delete(filePath);
+  }
 }
 
 async function saveStoredCanvasSnapshot(args, snapshot) {

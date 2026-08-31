@@ -11,6 +11,7 @@ const TOOL_READ_PAGE_ASSET = 'read_cowart_page_asset'
 const TOOL_DOWNLOAD_FILE = 'download_cowart_file'
 const TOOL_COPY_IMAGE_TO_CLIPBOARD = 'copy_cowart_image_to_clipboard'
 const TOOL_INSERT_HTML_DRAFT = 'insert_cowart_html_draft'
+const TOOL_SAVE_PREFERENCES = 'save_cowart_preferences'
 const WIDGET_PAYLOAD_TIMEOUT_MS = 5000
 
 globalThis.__COWART_WIDGET_FETCH_GUARD__ = true
@@ -118,6 +119,7 @@ export async function loadCowartCanvasState(signal) {
     return {
       snapshot: state.snapshot,
       viewState: state.viewState ?? null,
+      preferences: state.preferences ?? null,
       storage: state.storage,
       skippedRecords: []
     }
@@ -130,9 +132,16 @@ export async function loadCowartCanvasState(signal) {
   return {
     snapshot: canvasData.snapshot,
     viewState: viewStateData.viewState ?? null,
+    preferences: null,
     storage: canvasData.storage,
     skippedRecords: []
   }
+}
+
+/** 保存机器级 Cowart 偏好；本地开发没有 MCP 桥时由调用方的 localStorage 继续兜底。 */
+export async function saveCowartPreferences(preferences) {
+  if (!hasCowartWidgetBridge()) return { preferences }
+  return callCowartServerTool(TOOL_SAVE_PREFERENCES, { preferences })
 }
 
 export async function refreshCowartCanvasSnapshot(signal) {
